@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Discovery League Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "vite": "https://esm.sh/vite@^7.0.5",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+    "react/": "https://esm.sh/react@^19.1.0/",
+    "react": "https://esm.sh/react@^19.1.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^4.7.0",
+    "@google/genai": "https://esm.sh/@google/genai@^1.10.0",
+    "@vercel/node": "https://esm.sh/@vercel/node@^5.3.6",
+    "@vercel/kv": "https://esm.sh/@vercel/kv@^3.0.0",
+    "@vercel/blob": "https://esm.sh/@vercel/blob@^1.1.1"
+  }
+}
+</script>
+<style>
+  @media print {
+    body * {
+      visibility: hidden;
+    }
+    .printable, .printable * {
+      visibility: visible;
+    }
+    .printable {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+    }
+    .print-container {
+       background-color: white !important;
+       color: black !important;
+       font-family: sans-serif;
+       padding: 20px;
+    }
+    .print-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .print-header h1 {
+      font-size: 24px;
+      font-weight: bold;
+    }
+    .print-header h2 {
+      font-size: 18px;
+      color: #555;
+    }
+    .print-games-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 15px;
+    }
+    .print-game-card {
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 10px;
+      page-break-inside: avoid;
+    }
+    .print-game-card h3 {
+      font-size: 16px;
+      font-weight: bold;
+      text-align: center;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 5px;
+      margin-bottom: 10px;
+    }
+    .print-teams-container {
+      display: flex;
+      justify-content: space-around;
+    }
+    .print-team-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .print-team-list h4 {
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    .print-team-list li {
+      font-size: 12px;
+      padding: 2px 0;
+    }
+  }
+</style>
+</head>
+  <body class="bg-gray-900 text-gray-100 font-sans antialiased">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
