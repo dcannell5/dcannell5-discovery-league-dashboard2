@@ -2,7 +2,30 @@
 import { kv } from '@vercel/kv';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { AppData } from '../types';
-import { initialAppData } from '../data/initialData.js';
+
+// A minimal, empty structure to initialize the database on first load.
+// This prevents overwriting user data with a hardcoded state.
+const initialAppData: AppData = {
+  leagues: {},
+  dailyResults: {},
+  allDailyMatchups: {},
+  allDailyAttendance: {},
+  allPlayerProfiles: {},
+  allRefereeNotes: {},
+  allAdminFeedback: {},
+  allPlayerFeedback: {},
+  allPlayerPINs: {},
+  loginCounters: {},
+  projectLogs: [],
+  activeLeagueId: null,
+  upcomingEvent: {
+    title: 'Discovery League Summer Camp',
+    description: 'Join us for our annual Summer Camp! Sessions are available from July 2nd to July 11th. Focus on skill development, teamwork, and fun in a positive learning environment.',
+    buttonText: 'Learn More & Register',
+    buttonUrl: 'https://canadianeliteacademy.corsizio.com/',
+  },
+};
+
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
