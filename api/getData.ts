@@ -15,34 +15,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // If no data exists in the database (e.g., first-time run),
     // initialize it with a clean, empty state.
     if (!appData) {
-      console.log('No data found in Vercel KV, initializing with empty data structure.');
+      console.log('No data found in Vercel KV, attempting to initialize.');
       appData = initialAppData;
-      await (kv as any).set('discoveryLeagueData', appData);
+      try {
+        await (kv as any).set('discoveryLeagueData', appData);
+        console.log('Successfully initialized Vercel KV with initial data.');
+      } catch (initError) {
+        console.error("CRITICAL: Failed to initialize Vercel KV. Serving initial data without persistence.", initError);
+        // If setting also fails, we still serve the initial data so the app can load.
+        // It will be a non-persistent session.
+      }
     }
     
     res.status(200).json(appData);
   } catch (error) {
-    console.error("Error fetching data from Vercel KV:", error);
-    // On error, return an empty but valid structure to prevent frontend crash
-    const minimalData: AppData = {
-        leagues: {}, 
-        dailyResults: {}, 
-        allDailyMatchups: {}, 
-        allDailyAttendance: {}, 
-        allPlayerProfiles: {}, 
-        allRefereeNotes: {}, 
-        allAdminFeedback: {},
-        allPlayerFeedback: {},
-        allPlayerPINs: {},
-        loginCounters: {},
-        activeLeagueId: null,
-        upcomingEvent: {
-          title: 'Error Loading Data',
-          description: 'Could not connect to the database. Please try again later.',
-          buttonText: '',
-          buttonUrl: '#',
-        }
-    };
-    res.status(500).json(minimalData);
+    console.error("CRITICAL: Error fetching data from Vercel KV. The database might be misconfigured. Serving initial data as a fallback.", error);
+    // On any error fetching from KV, we fall back to the initial app data.
+    // This allows the app to load, although it will be in a non-persistent state
+    // until the database issue is resolved.
+    res.status(200).json(initialAppData);
   }
 }
