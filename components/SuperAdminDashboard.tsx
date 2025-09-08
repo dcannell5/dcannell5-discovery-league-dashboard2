@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import type { ProjectLogEntry } from '../types';
-import { IconLayoutDashboard, IconUsersGroup, IconBriefcase, IconShieldCheck, IconShieldExclamation, IconRefresh, IconLogout, IconUserCheck, IconUsers } from './Icon';
+// FIX: Add IconUsers to the import statement.
+import { IconLayoutDashboard, IconUsersGroup, IconBriefcase, IconShieldCheck, IconShieldExclamation, IconRefresh, IconLogout, IconUserCheck, IconBook, IconUsers } from './Icon';
 import ProjectJournalPanel from './ProjectJournalPanel';
 import { logoUrl } from '../assets/logo';
 import HelpIcon from './HelpIcon';
