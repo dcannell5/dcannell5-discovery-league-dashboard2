@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, RefereeNote, UpcomingEvent, PlayerProfile, AllPlayerProfiles, AdminFeedback, PlayerFeedback, AiMessage, ProjectLogEntry, SaveStatus } from './types';
 import { SUPER_ADMIN_CODE, getRefereeCodeForCourt, getPlayerCode, getParentCode } from './utils/auth';
@@ -173,6 +174,44 @@ const App: React.FC = () => {
           clearTimeout(handler);
       };
   }, [appData, saveStatus, isReadOnlySession]);
+
+    const forceSave = useCallback(async () => {
+        if (!appData) return;
+
+        isSavingExplicitly.current = true;
+        setSaveStatus('saving');
+        setSaveError(null); // Clear previous error on retry
+
+        try {
+            const response = await fetch('/api/savedata', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(appData)
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error("Failed to save data to backend:", errorText);
+                try {
+                    const errorJson = JSON.parse(errorText);
+                    setSaveError(errorJson.details || errorJson.error || 'Unknown server error');
+                } catch (e) {
+                    setSaveError(errorText || 'Unknown server error');
+                }
+                setSaveStatus('error');
+            } else {
+                setSaveStatus('saved');
+                setSaveError(null);
+                justSaved.current = true;
+            }
+        } catch (error) {
+            console.error("Failed to save app data to backend:", error);
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            setSaveError(errorMessage);
+            setSaveStatus('error');
+        } finally {
+            isSavingExplicitly.current = false;
+        }
+    }, [appData]);
 
 
   // activeLeagueId and upcomingEvent are now derived from appData state
@@ -882,7 +921,7 @@ const App: React.FC = () => {
                 conversation={aiConversation}
                 onSendQuery={handleAiQuery}
             />
-             {showSaveStatus && <SaveStatusIndicator status={saveStatus} errorMessage={saveError} />}
+             {showSaveStatus && <SaveStatusIndicator status={saveStatus} errorMessage={saveError} onRetry={forceSave} />}
         </>
       )}
     </>

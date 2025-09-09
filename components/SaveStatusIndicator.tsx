@@ -1,5 +1,6 @@
 
 
+
 import React from 'react';
 import { IconCloud, IconCloudCheck, IconCloudOff, IconEdit, IconEye } from './Icon';
 import type { SaveStatus } from '../types';
@@ -7,6 +8,7 @@ import type { SaveStatus } from '../types';
 interface SaveStatusIndicatorProps {
   status: SaveStatus;
   errorMessage?: string | null;
+  onRetry?: () => void;
 }
 
 const statusConfig = {
@@ -48,7 +50,7 @@ const statusConfig = {
   }
 };
 
-const SaveStatusIndicator: React.FC<SaveStatusIndicatorProps> = ({ status, errorMessage }) => {
+const SaveStatusIndicator: React.FC<SaveStatusIndicatorProps> = ({ status, errorMessage, onRetry }) => {
   if (status === 'idle') {
     return null;
   }
@@ -67,6 +69,14 @@ const SaveStatusIndicator: React.FC<SaveStatusIndicatorProps> = ({ status, error
     >
       {icon}
       <span className="text-sm font-semibold">{displayMessage}</span>
+      {status === 'error' && onRetry && (
+        <button
+          onClick={onRetry}
+          className="ml-2 text-xs font-bold bg-gray-600 px-2.5 py-1 rounded-full hover:bg-gray-500 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400"
+        >
+          Retry
+        </button>
+      )}
     </div>
   );
 };
