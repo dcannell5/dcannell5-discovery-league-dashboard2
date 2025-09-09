@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { ProjectLogEntry, SaveStatus } from '../types';
-import { IconLayoutDashboard, IconUsersGroup, IconBriefcase, IconShieldCheck, IconShieldExclamation, IconRefresh, IconLogout, IconUserCheck, IconUsers, IconCloud, IconCloudCheck, IconCloudOff, IconEdit } from './Icon';
+import type { ProjectLogEntry, SaveStatus, SystemLog } from '../types';
+import { IconLayoutDashboard, IconUsersGroup, IconBriefcase, IconShieldCheck, IconShieldExclamation, IconRefresh, IconLogout, IconUserCheck, IconUsers, IconCloud, IconCloudCheck, IconCloudOff, IconEdit, IconClipboard, IconClipboardCheck, IconChevronDown } from './Icon';
 import ProjectJournalPanel from './ProjectJournalPanel';
 import { logoUrl } from '../assets/logo';
 import HelpIcon from './HelpIcon';
@@ -11,18 +11,21 @@ interface SuperAdminDashboardProps {
   onNavigateToLeagues: () => void;
   projectLogs: ProjectLogEntry[];
   onSaveProjectLog: (post: Omit<ProjectLogEntry, 'id' | 'date'>) => void;
+  systemLogs: SystemLog[];
+  addSystemLog: (logData: Omit<SystemLog, 'id' | 'timestamp'>) => void;
   saveStatus: SaveStatus;
   saveError: string | null;
   onRetrySave: () => void;
 }
 
+type SystemStatusState = 'OK' | 'ERROR' | 'CHECKING';
 type SystemStatus = {
-    kvDatabase: 'OK' | 'ERROR' | 'CHECKING';
-    blobStorage: 'OK' | 'ERROR' | 'CHECKING';
-    aiService: 'OK' | 'ERROR' | 'CHECKING';
+    kvDatabase: SystemStatusState;
+    blobStorage: SystemStatusState;
+    aiService: SystemStatusState;
 };
 
-const StatusIndicator: React.FC<{ status: 'OK' | 'ERROR' | 'CHECKING', label: string, helpText: string }> = ({ status, label, helpText }) => {
+const StatusIndicator: React.FC<{ status: SystemStatusState, label: string, helpText: string }> = ({ status, label, helpText }) => {
     const isOk = status === 'OK';
     const isChecking = status === 'CHECKING';
     
@@ -51,7 +54,7 @@ const SaveStateIndicator: React.FC<{ status: SaveStatus; errorMessage: string | 
     const statusConfig = {
       unsaved: { icon: <IconEdit className="w-5 h-5" />, text: 'Unsaved changes', color: 'text-yellow-400' },
       saving: { icon: <IconCloud className="w-5 h-5 animate-pulse" />, text: 'Saving to database...', color: 'text-blue-400' },
-      saved: { icon: <IconCloudCheck className="w-5 h-5" />, text: 'All changes saved to database', color: 'text-green-400' },
+      saved: { icon: <IconCloudCheck className="w-5 h-5" />, text: 'All changes saved', color: 'text-green-400' },
       error: { icon: <IconCloudOff className="w-5 h-5" />, text: 'Error saving data', color: 'text-red-400' },
     };
 
@@ -72,13 +75,68 @@ const SaveStateIndicator: React.FC<{ status: SaveStatus; errorMessage: string | 
                 </div>
                 {status === 'error' && onRetry && (
                     <button onClick={onRetry} className="text-xs font-bold bg-gray-600 px-2.5 py-1 rounded-full hover:bg-gray-500 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400">
-                      Retry Save
+                      Retry
                     </button>
                 )}
             </div>
-            {status === 'error' && errorMessage && (
-                <div className="mt-2 p-2 bg-red-900/50 text-red-300 text-xs rounded-md font-mono overflow-x-auto">
-                  {errorMessage}
+        </div>
+    );
+};
+
+const LogEntry: React.FC<{ log: SystemLog }> = ({ log }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = () => {
+        if (log.details) {
+            navigator.clipboard.writeText(log.details);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
+    const statusStyles = {
+        Success: { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30' },
+        Error: { bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30' },
+        Info: { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30' },
+    };
+    const style = statusStyles[log.status];
+
+    return (
+        <div className={`p-3 rounded-lg border ${style.border} ${style.bg}`}>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <span className={`font-bold text-xs px-2 py-0.5 rounded-full ${style.bg} ${style.text}`}>{log.status}</span>
+                    <span className="text-sm text-white">{log.message}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                    {(log.details || log.suggestion) && (
+                        <button onClick={() => setIsExpanded(!isExpanded)} className="text-gray-400 hover:text-white">
+                            <IconChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                        </button>
+                    )}
+                </div>
+            </div>
+            {isExpanded && (log.details || log.suggestion) && (
+                <div className="mt-3 pt-3 border-t border-gray-600/50 text-xs space-y-3">
+                    {log.suggestion && (
+                        <div>
+                             <h5 className="font-bold text-yellow-400 mb-1">Suggestion</h5>
+                             <p className="text-gray-300">{log.suggestion}</p>
+                        </div>
+                    )}
+                    {log.details && (
+                        <div>
+                            <div className="flex justify-between items-center mb-1">
+                                <h5 className="font-bold text-gray-400">Technical Details</h5>
+                                <button onClick={handleCopy} className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors">
+                                    {copied ? <><IconClipboardCheck className="w-3 h-3 text-green-400"/> Copied</> : <><IconClipboard className="w-3 h-3"/> Copy</>}
+                                </button>
+                            </div>
+                            <pre className="bg-gray-900/50 p-2 rounded-md font-mono text-gray-400 overflow-x-auto">{log.details}</pre>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
@@ -112,32 +170,67 @@ const NavCard: React.FC<{ icon: React.ReactNode, title: string, description: str
 };
 
 
-const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onLogout, onNavigateToLeagues, projectLogs, onSaveProjectLog, saveStatus, saveError, onRetrySave }) => {
+const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onLogout, onNavigateToLeagues, projectLogs, onSaveProjectLog, systemLogs, addSystemLog, saveStatus, saveError, onRetrySave }) => {
   const [systemStatus, setSystemStatus] = useState<SystemStatus>({ kvDatabase: 'CHECKING', blobStorage: 'CHECKING', aiService: 'CHECKING' });
+
+  const getSuggestion = (service: keyof SystemStatus, details: string): string => {
+      const genericSuggestion = "This may be a temporary issue. Try re-running the check in a moment. If the problem persists, check your project's Vercel dashboard and the Vercel status page.";
+      if (service === 'kvDatabase') {
+          if (details.includes('authentication') || details.includes('Unauthorized')) return "Authentication with Vercel KV failed. Please verify that the KV_REST_API_URL and KV_REST_API_TOKEN environment variables are correctly set in your project's Vercel settings.";
+          return `The database at elite-academy-kv might be experiencing issues. ${genericSuggestion}`;
+      }
+      if (service === 'blobStorage') {
+          if (details.includes('configured')) return "The BLOB_READ_WRITE_TOKEN environment variable is missing. Please connect a Vercel Blob store to your project via the Vercel dashboard integrations tab.";
+          return `The blob store at discovery-league-dashboard-blob might be experiencing issues. ${genericSuggestion}`;
+      }
+      if (service === 'aiService') {
+          return "The API_KEY environment variable for the Gemini AI service is missing. Please add it to your project's Vercel settings to enable AI features.";
+      }
+      return genericSuggestion;
+  };
 
   const checkHealth = useCallback(async () => {
     setSystemStatus({ kvDatabase: 'CHECKING', blobStorage: 'CHECKING', aiService: 'CHECKING' });
     try {
         const response = await fetch('/api/system-health');
+        const data = await response.json();
+
         if (response.ok) {
-            const data = await response.json();
-            setSystemStatus(data);
+            setSystemStatus({
+                kvDatabase: data.kvDatabase.status,
+                blobStorage: data.blobStorage.status,
+                aiService: data.aiService.status,
+            });
+            
+            Object.entries(data).forEach(([key, value]) => {
+                const { status, details } = value as { status: SystemStatusState, details: string };
+                const serviceName = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
+                 addSystemLog({
+                    type: 'Health Check',
+                    status: status === 'OK' ? 'Success' : 'Error',
+                    message: `${serviceName} check ${status === 'OK' ? 'succeeded' : 'failed'}.`,
+                    details: details,
+                    suggestion: status === 'ERROR' ? getSuggestion(key as keyof SystemStatus, details) : undefined,
+                });
+            });
         } else {
-            setSystemStatus({ kvDatabase: 'ERROR', blobStorage: 'ERROR', aiService: 'ERROR' });
+            throw new Error(data.error || 'Unknown error');
         }
     } catch (error) {
-        console.error("Failed to fetch system health:", error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error("Failed to fetch system health:", errorMessage);
         setSystemStatus({ kvDatabase: 'ERROR', blobStorage: 'ERROR', aiService: 'ERROR' });
+        addSystemLog({ type: 'Health Check', status: 'Error', message: 'Could not run system health checks.', details: errorMessage, suggestion: "The health check API endpoint might be down or misconfigured. Check the server logs in Vercel for more details." });
     }
-  }, []);
+  }, [addSystemLog]);
 
   useEffect(() => {
     checkHealth();
-  }, [checkHealth]);
+  }, []); // Run only once on mount
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 p-4 sm:p-6 md:p-8">
-      <div className="w-full max-w-5xl mx-auto">
+      <div className="w-full max-w-6xl mx-auto">
         <header className="text-center mb-12 relative">
              <div className="absolute top-0 right-0 flex items-center gap-4">
                 <div className="flex items-center gap-2 text-sm bg-gray-700/50 px-3 py-1.5 rounded-lg">
@@ -157,33 +250,41 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onLogout, onN
         </header>
 
         <div className="mb-8 p-6 bg-gray-800/50 rounded-2xl shadow-2xl border border-gray-700">
-            <h3 className="text-lg font-semibold text-white mb-4 text-center">System Health & Status</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-4">
-                    <StatusIndicator 
+            <h3 className="text-xl font-bold text-white mb-4 text-center">System Diagnostics</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-1 space-y-4">
+                     <StatusIndicator 
                         status={systemStatus.kvDatabase} 
                         label="KV Database" 
-                        helpText="Tests read/write access to the Vercel KV store (elite-academy-kv) where all league data is stored."
+                        helpText="Tests read/write access to elite-academy-kv."
                     />
                     <StatusIndicator 
                         status={systemStatus.blobStorage} 
                         label="Blob Storage"
-                        helpText="Tests upload/delete access to the Vercel Blob store (discovery-league-dashboard-blob) for player profile images."
+                        helpText="Tests upload/delete access to discovery-league-dashboard-blob."
                     />
                      <StatusIndicator 
                         status={systemStatus.aiService} 
                         label="AI Service"
-                        helpText="Checks if the Gemini API key is configured on the server, required for features like coaching tips."
+                        helpText="Checks if the Gemini API key is configured on the server."
                     />
-                </div>
-                <div className="flex flex-col gap-4">
-                    <SaveStateIndicator status={saveStatus} errorMessage={saveError} onRetry={onRetrySave} />
-                    <button 
+                     <SaveStateIndicator status={saveStatus} errorMessage={saveError} onRetry={onRetrySave} />
+                     <button 
                         onClick={checkHealth}
-                        className="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold p-3 rounded-lg transition-colors flex items-center justify-center gap-2 mt-auto"
+                        className="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold p-3 rounded-lg transition-colors flex items-center justify-center gap-2"
                     >
-                        <IconRefresh className="w-5 h-5"/> Re-run Checks
+                        <IconRefresh className="w-5 h-5"/> Re-run Diagnostics
                     </button>
+                </div>
+                <div className="lg:col-span-2 bg-gray-900/50 p-4 rounded-lg border border-gray-600">
+                    <h4 className="font-semibold text-white mb-3">System Event Log</h4>
+                    <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
+                        {systemLogs.length > 0 ? (
+                           [...systemLogs].map(log => <LogEntry key={log.id} log={log} />)
+                        ) : (
+                           <p className="text-center text-sm text-gray-500 py-10">No system events logged yet.</p> 
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

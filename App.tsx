@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, RefereeNote, UpcomingEvent, PlayerProfile, AllPlayerProfiles, AdminFeedback, PlayerFeedback, AiMessage, ProjectLogEntry, SaveStatus } from './types';
+import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, RefereeNote, UpcomingEvent, PlayerProfile, AllPlayerProfiles, AdminFeedback, PlayerFeedback, AiMessage, ProjectLogEntry, SaveStatus, SystemLog } from './types';
 import { SUPER_ADMIN_CODE, getRefereeCodeForCourt, getPlayerCode, getParentCode } from './utils/auth';
 import { getAllCourtNames } from './utils/leagueLogic';
 import SetupScreen from './components/SetupScreen';
@@ -88,6 +88,36 @@ const App: React.FC = () => {
   // Navigation states
   const [adminView, setAdminView] = useState<'hub' | 'leagueSelector'>('hub');
   const [currentView, setCurrentView] = useState<'app' | 'blog'>('app');
+  
+  const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
+  const MAX_LOGS = 50;
+
+  const addSystemLog = useCallback((logData: Omit<SystemLog, 'id' | 'timestamp'>) => {
+    const newLog: SystemLog = {
+      id: `log-${Date.now()}-${Math.random()}`,
+      timestamp: new Date().toISOString(),
+      ...logData,
+    };
+    setSystemLogs(prevLogs => [newLog, ...prevLogs].slice(0, MAX_LOGS));
+  }, []);
+  
+  useEffect(() => {
+    // Sync logs from loaded appData on initial load.
+    if (appData?.systemLogs) {
+        setSystemLogs(appData.systemLogs);
+    }
+  }, [appData?.systemLogs]);
+  
+  const updateAppData = useCallback((updater: (prevData: AppData) => AppData) => {
+    // The updater function now also receives the addSystemLog utility.
+    setAppData(prev => {
+        if (!prev) return prev;
+        const newState = updater(prev);
+        // Persist system logs within the main appData object
+        return { ...newState, systemLogs };
+    });
+  }, [systemLogs]);
+
 
   // Load initial data from the backend
   useEffect(() => {
@@ -101,9 +131,13 @@ const App: React.FC = () => {
             }
             const data: AppData = await response.json();
             setAppData(data);
+            setSystemLogs(data.systemLogs || []); // Initialize logs from loaded data
             setSaveStatus('saved'); // Initial data is considered saved
+            addSystemLog({ type: 'Data Load', status: 'Success', message: 'Application data loaded successfully.' });
         } catch (error) {
             console.error("Could not load initial application data:", error);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            addSystemLog({ type: 'Data Load', status: 'Error', message: 'Failed to load application data from server.', details: errorMessage });
             setAppData(null); // Set to null on error
             setSaveStatus('error');
         } finally {
@@ -141,7 +175,7 @@ const App: React.FC = () => {
               const response = await fetch('/api/savedata', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(appData)
+                  body: JSON.stringify({ ...appData, systemLogs }) // Always save latest logs
               });
               if (!response.ok) {
                   const errorText = await response.text();
@@ -153,23 +187,26 @@ const App: React.FC = () => {
                     setSaveError(errorText || 'Unknown server error');
                   }
                   setSaveStatus('error');
+                  addSystemLog({ type: 'Data Save', status: 'Error', message: 'Debounced save failed.', details: errorText });
               } else {
                   setSaveStatus('saved');
                   setSaveError(null);
                   justSaved.current = true;
+                  addSystemLog({ type: 'Data Save', status: 'Success', message: 'Debounced save successful.' });
               }
           } catch (error) {
               console.error("Failed to save app data to backend:", error);
               const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
               setSaveError(errorMessage);
               setSaveStatus('error');
+              addSystemLog({ type: 'Data Save', status: 'Error', message: 'Debounced save failed due to a network or client error.', details: errorMessage });
           }
       }, 1500); // Debounce save for 1.5 seconds
 
       return () => {
           clearTimeout(handler);
       };
-  }, [appData, saveStatus, isReadOnlySession]);
+  }, [appData, saveStatus, isReadOnlySession, systemLogs, addSystemLog]);
 
     const forceSave = useCallback(async () => {
         if (!appData) return;
@@ -182,7 +219,7 @@ const App: React.FC = () => {
             const response = await fetch('/api/savedata', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(appData)
+                body: JSON.stringify({ ...appData, systemLogs })
             });
             if (!response.ok) {
                 const errorText = await response.text();
@@ -194,20 +231,23 @@ const App: React.FC = () => {
                     setSaveError(errorText || 'Unknown server error');
                 }
                 setSaveStatus('error');
+                addSystemLog({ type: 'Data Save', status: 'Error', message: 'Manual save failed.', details: errorText });
             } else {
                 setSaveStatus('saved');
                 setSaveError(null);
                 justSaved.current = true;
+                addSystemLog({ type: 'Data Save', status: 'Success', message: 'Manual save successful.' });
             }
         } catch (error) {
             console.error("Failed to save app data to backend:", error);
             const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
             setSaveError(errorMessage);
             setSaveStatus('error');
+            addSystemLog({ type: 'Data Save', status: 'Error', message: 'Manual save failed due to a network or client error.', details: errorMessage });
         } finally {
             isSavingExplicitly.current = false;
         }
-    }, [appData]);
+    }, [appData, systemLogs, addSystemLog]);
 
 
   // activeLeagueId and upcomingEvent are now derived from appData state
@@ -219,19 +259,6 @@ const App: React.FC = () => {
     buttonUrl: 'https://canadianeliteacademy.corsizio.com/'
   };
 
-  const updateAppData = useCallback((updater: (prevData: AppData) => AppData) => {
-    setAppData(prev => (prev ? updater(prev) : prev));
-  }, []);
-
-  // Handler to be passed down to simple components
-  const handleSetActiveLeagueId = (id: string | null) => {
-    if (isReadOnlySession) {
-      window.location.reload();
-      return;
-    }
-    updateAppData(prev => ({ ...prev, activeLeagueId: id }));
-  };
-  
   const handleUpdateUpcomingEvent = useCallback((event: UpcomingEvent) => {
     updateAppData(prev => ({
       ...prev,
@@ -266,6 +293,7 @@ const App: React.FC = () => {
       if (imagesToUpload.length > 0) {
         const profilesCopy = JSON.parse(JSON.stringify(importedData.allPlayerProfiles));
         setSaveError(`Found ${imagesToUpload.length} images to upload...`);
+        addSystemLog({ type: 'Image Upload', status: 'Info', message: `Import found ${imagesToUpload.length} local images to upload.` });
         await new Promise(resolve => setTimeout(resolve, 50));
         
         for (let i = 0; i < imagesToUpload.length; i++) {
@@ -290,6 +318,7 @@ const App: React.FC = () => {
           const uploadResult = await uploadResponse.json();
           profilesCopy[leagueId][playerId].imageUrl = uploadResult.url;
         }
+        addSystemLog({ type: 'Image Upload', status: 'Success', message: `Successfully uploaded ${imagesToUpload.length} images.` });
         dataToSave = { ...importedData, allPlayerProfiles: profilesCopy };
       }
 
@@ -315,6 +344,7 @@ const App: React.FC = () => {
       
       setSaveStatus('saved');
       setSaveError(null);
+      addSystemLog({ type: 'Data Save', status: 'Success', message: 'Data import completed and saved successfully.' });
       return true;
 
     } catch (error) {
@@ -322,11 +352,12 @@ const App: React.FC = () => {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       setSaveError(errorMessage);
       setSaveStatus('error');
+      addSystemLog({ type: 'Data Save', status: 'Error', message: 'Data import failed.', details: errorMessage });
       return false;
     } finally {
       isSavingExplicitly.current = false;
     }
-  }, []);
+  }, [addSystemLog]);
 
   const handleLoadPreset = useCallback(() => {
     if (window.confirm("You are entering a read-only view of the preset league. No changes will be saved, and the page will reload when you exit. Continue?")) {
@@ -346,6 +377,7 @@ const App: React.FC = () => {
             allPlayerPINs: { [presetLeagueId]: {} },
             loginCounters: { [presetLeagueId]: {} },
             projectLogs: appData?.projectLogs || [], // Persist logs across sessions
+            systemLogs: appData?.systemLogs || [], // Persist logs
             activeLeagueId: presetLeagueId,
             upcomingEvent: appData?.upcomingEvent, // Persist event
         };
@@ -400,6 +432,15 @@ const App: React.FC = () => {
     handleSetActiveLeagueId(null);
   }, []);
   
+  // Handler to be passed down to simple components
+  const handleSetActiveLeagueId = (id: string | null) => {
+    if (isReadOnlySession) {
+      window.location.reload();
+      return;
+    }
+    updateAppData(prev => ({ ...prev, activeLeagueId: id }));
+  };
+
   const handleLogout = useCallback(() => {
     if (isReadOnlySession) {
       window.location.reload();
@@ -809,6 +850,8 @@ const App: React.FC = () => {
         onLogout={handleLogout}
         projectLogs={appData.projectLogs || []}
         onSaveProjectLog={handleSaveProjectLog}
+        systemLogs={systemLogs}
+        addSystemLog={addSystemLog}
         saveStatus={saveStatus}
         saveError={saveError}
         onRetrySave={forceSave}
@@ -831,6 +874,7 @@ const App: React.FC = () => {
               currentPIN={activeDataSlices.allPlayerPINs[viewingPlayer.id]}
               onSetPIN={(pin) => handleSetPlayerPIN(viewingPlayer.id, pin)}
               onSavePlayerFeedback={handleSavePlayerFeedback}
+              addSystemLog={addSystemLog}
           />;
       } else {
           pageContent = <Dashboard

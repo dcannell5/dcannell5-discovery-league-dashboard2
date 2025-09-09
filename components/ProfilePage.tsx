@@ -1,8 +1,9 @@
 
 
 
+
 import React, { useState, useEffect } from 'react';
-import type { Player, PlayerProfile, UserState, RefereeNote } from '../types';
+import type { Player, PlayerProfile, UserState, RefereeNote, SystemLog } from '../types';
 import { getPlayerCode, getParentCode } from '../utils/auth';
 import { IconUserCircle, IconEdit, IconMessage, IconLock, IconLightbulb } from './Icon';
 import HelpIcon from './HelpIcon';
@@ -17,6 +18,7 @@ interface ProfilePageProps {
   currentPIN?: string;
   onSetPIN: (pin: string) => void;
   onSavePlayerFeedback: (feedbackText: string) => void;
+  addSystemLog: (logData: Omit<SystemLog, 'id' | 'timestamp'>) => void;
 }
 
 const PINModal: React.FC<{
@@ -168,7 +170,7 @@ const PlayerFeedbackModal: React.FC<{
 };
 
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ player, profile, userState, onSave, onBack, refereeNotes, currentPIN, onSetPIN, onSavePlayerFeedback }) => {
+const ProfilePage: React.FC<ProfilePageProps> = ({ player, profile, userState, onSave, onBack, refereeNotes, currentPIN, onSetPIN, onSavePlayerFeedback, addSystemLog }) => {
   const [localProfile, setLocalProfile] = useState<PlayerProfile>(profile);
   const [isEditing, setIsEditing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -196,6 +198,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ player, profile, userState, o
 
     setUploadError('');
     setIsUploading(true);
+    addSystemLog({ type: 'Image Upload', status: 'Info', message: `Starting upload for ${file.name} for player ${player.id}.` });
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = async () => {
@@ -214,9 +217,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ player, profile, userState, o
 
             const { url } = await response.json();
             handleInputChange('imageUrl', url);
+            addSystemLog({ type: 'Image Upload', status: 'Success', message: `Image for player ${player.id} uploaded to ${url}.` });
 
         } catch (err: any) {
             setUploadError(err.message || 'Could not upload image.');
+            addSystemLog({ type: 'Image Upload', status: 'Error', message: `Image upload failed for player ${player.id}.`, details: err.message });
         } finally {
             setIsUploading(false);
         }
@@ -224,6 +229,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ player, profile, userState, o
     reader.onerror = () => {
         setUploadError('Failed to read file.');
         setIsUploading(false);
+        addSystemLog({ type: 'Image Upload', status: 'Error', message: `Failed to read file on client for player ${player.id}.` });
     }
   };
   

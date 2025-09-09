@@ -2,52 +2,61 @@ import { kv } from '@vercel/kv';
 import { put, head, del } from '@vercel/blob';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+type HealthStatus = {
+  status: 'OK' | 'ERROR';
+  details: string;
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const checkKv = async (): Promise<'OK' | 'ERROR'> => {
+  const checkKv = async (): Promise<HealthStatus> => {
     try {
       const testKey = 'health_check_kv';
       const testValue = `health-check-${Date.now()}`;
       await kv.set(testKey, testValue, { ex: 10 });
       const readValue = await kv.get(testKey);
-      if (readValue !== testValue) throw new Error('KV read/write validation failed.');
+      if (readValue !== testValue) throw new Error('Read/write validation failed.');
       await kv.del(testKey);
-      return 'OK';
+      return { status: 'OK', details: 'Successfully connected and performed read/write test.' };
     } catch (error) {
-      console.error("Health Check: Vercel KV connection failed.", error);
-      return 'ERROR';
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("Health Check: Vercel KV connection failed.", errorMessage);
+      return { status: 'ERROR', details: errorMessage };
     }
   };
 
-  const checkBlob = async (): Promise<'OK' | 'ERROR'> => {
+  const checkBlob = async (): Promise<HealthStatus> => {
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
-        console.error("Health Check: BLOB_READ_WRITE_TOKEN is not configured.");
-        return 'ERROR';
+      const msg = "BLOB_READ_WRITE_TOKEN is not configured on the server.";
+      console.error("Health Check:", msg);
+      return { status: 'ERROR', details: msg };
     }
     try {
       const testFilename = `health-check/blob_${Date.now()}.txt`;
       const testContent = 'health check';
       
       const { url } = await put(testFilename, testContent, { access: 'public' });
-      await head(url); // Check if it exists
-      await del(url); // Clean up
+      await head(url); 
+      await del(url); 
       
-      return 'OK';
+      return { status: 'OK', details: 'Successfully connected and performed upload/delete test.' };
     } catch (error) {
-      console.error("Health Check: Vercel Blob connection failed.", error);
-      return 'ERROR';
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("Health Check: Vercel Blob connection failed.", errorMessage);
+      return { status: 'ERROR', details: errorMessage };
     }
   };
 
-  const checkAi = (): 'OK' | 'ERROR' => {
+  const checkAi = (): HealthStatus => {
     if (!process.env.API_KEY) {
-      console.error("Health Check: Gemini API_KEY is not configured.");
-      return 'ERROR';
+      const msg = "Gemini API_KEY is not configured on the server.";
+      console.error("Health Check:", msg);
+      return { status: 'ERROR', details: msg };
     }
-    return 'OK';
+    return { status: 'OK', details: 'API key is present in server environment.' };
   };
 
   const [kvDatabase, blobStorage, aiService] = await Promise.all([

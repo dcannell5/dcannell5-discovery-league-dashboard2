@@ -168,6 +168,17 @@ export interface ProjectLogEntry {
 // --- Save Status Type ---
 export type SaveStatus = 'idle' | 'unsaved' | 'saving' | 'saved' | 'error' | 'readonly';
 
+// --- System Log Type ---
+export interface SystemLog {
+    id: string;
+    timestamp: string;
+    type: 'Data Load' | 'Data Save' | 'Health Check' | 'Image Upload';
+    status: 'Success' | 'Error' | 'Info';
+    message: string;
+    details?: string;
+    suggestion?: string;
+}
+
 
 // --- Top-level Application Data Structure for Multi-League ---
 export interface AppData {
@@ -182,6 +193,7 @@ export interface AppData {
     allPlayerPINs?: Record<string, Record<number, string>>; // leagueId -> playerId -> PIN
     loginCounters?: Record<string, Record<number, LoginCounts>>; // leagueId -> playerId -> LoginCounts
     projectLogs?: ProjectLogEntry[]; // Global project logs for the build blog
+    systemLogs?: SystemLog[]; // Global system logs for admin diagnostics
     activeLeagueId?: string | null;
     upcomingEvent?: UpcomingEvent;
 }
