@@ -1,6 +1,8 @@
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { AppData } from '../types';
+
+const redis = Redis.fromEnv();
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -18,12 +20,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const dataSize = JSON.stringify(appData).length;
     console.log(`Received data payload of size: ${Math.round(dataSize / 1024)} KB`);
 
-    await (kv as any).set('discoveryLeagueData', appData);
+    await redis.set('discoveryLeagueData', appData);
     
     res.status(200).json({ success: true });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    console.error("Critical Error saving data to Vercel KV:", errorMessage);
+    console.error("Critical Error saving data to Redis:", errorMessage);
     res.status(500).json({ error: 'Failed to save data to the database.', details: errorMessage });
   }
 }
