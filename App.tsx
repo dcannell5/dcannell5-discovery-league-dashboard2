@@ -11,7 +11,6 @@ import LoginPage from './components/LoginPage';
 import SuperAdminDashboard from './components/SuperAdminDashboard';
 import AiHelper from './components/AiHelper';
 import AiHelperButton from './components/AiHelperButton';
-import SaveStatusIndicator from './components/SaveStatusIndicator';
 import { IconVolleyball } from './components/Icon';
 import BlogPage from './components/BlogPage';
 import { presetData } from './data/presetSchedule';
@@ -810,6 +809,9 @@ const App: React.FC = () => {
         onLogout={handleLogout}
         projectLogs={appData.projectLogs || []}
         onSaveProjectLog={handleSaveProjectLog}
+        saveStatus={saveStatus}
+        saveError={saveError}
+        onRetrySave={forceSave}
     />
   } else if (activeLeagueId === 'new') {
     pageContent = <SetupScreen 
@@ -877,8 +879,6 @@ const App: React.FC = () => {
       />;
   }
 
-  const showSaveStatus = currentView === 'app' && userState.role !== 'NONE';
-
   return (
     <>
       {pageContent}
@@ -906,7 +906,6 @@ const App: React.FC = () => {
                 conversation={aiConversation}
                 onSendQuery={handleAiQuery}
             />
-             {showSaveStatus && <SaveStatusIndicator status={saveStatus} errorMessage={saveError} onRetry={forceSave} />}
         </>
       )}
     </>

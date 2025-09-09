@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { ProjectLogEntry } from '../types';
-import { IconLayoutDashboard, IconUsersGroup, IconBriefcase, IconShieldCheck, IconShieldExclamation, IconRefresh, IconLogout, IconUserCheck, IconUsers } from './Icon';
+import type { ProjectLogEntry, SaveStatus } from '../types';
+import { IconLayoutDashboard, IconUsersGroup, IconBriefcase, IconShieldCheck, IconShieldExclamation, IconRefresh, IconLogout, IconUserCheck, IconUsers, IconCloud, IconCloudCheck, IconCloudOff, IconEdit } from './Icon';
 import ProjectJournalPanel from './ProjectJournalPanel';
 import { logoUrl } from '../assets/logo';
 import HelpIcon from './HelpIcon';
@@ -11,10 +11,14 @@ interface SuperAdminDashboardProps {
   onNavigateToLeagues: () => void;
   projectLogs: ProjectLogEntry[];
   onSaveProjectLog: (post: Omit<ProjectLogEntry, 'id' | 'date'>) => void;
+  saveStatus: SaveStatus;
+  saveError: string | null;
+  onRetrySave: () => void;
 }
 
 type SystemStatus = {
-    database: 'OK' | 'ERROR' | 'CHECKING';
+    kvDatabase: 'OK' | 'ERROR' | 'CHECKING';
+    blobStorage: 'OK' | 'ERROR' | 'CHECKING';
     aiService: 'OK' | 'ERROR' | 'CHECKING';
 };
 
@@ -39,6 +43,44 @@ const StatusIndicator: React.FC<{ status: 'OK' | 'ERROR' | 'CHECKING', label: st
                 </div>
                 <span className="text-xs text-gray-500">{status}</span>
             </div>
+        </div>
+    );
+};
+
+const SaveStateIndicator: React.FC<{ status: SaveStatus; errorMessage: string | null; onRetry: () => void; }> = ({ status, errorMessage, onRetry }) => {
+    const statusConfig = {
+      unsaved: { icon: <IconEdit className="w-5 h-5" />, text: 'Unsaved changes', color: 'text-yellow-400' },
+      saving: { icon: <IconCloud className="w-5 h-5 animate-pulse" />, text: 'Saving to database...', color: 'text-blue-400' },
+      saved: { icon: <IconCloudCheck className="w-5 h-5" />, text: 'All changes saved to database', color: 'text-green-400' },
+      error: { icon: <IconCloudOff className="w-5 h-5" />, text: 'Error saving data', color: 'text-red-400' },
+    };
+
+    if (status === 'idle' || status === 'readonly') return null;
+
+    const config = statusConfig[status];
+    const displayMessage = status === 'saving' && errorMessage ? errorMessage : config.text;
+
+    return (
+        <div className="bg-gray-700/50 p-3 rounded-lg h-full flex flex-col justify-center">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                     <div className={`flex-shrink-0 ${config.color}`}>{config.icon}</div>
+                     <div>
+                        <div className={`font-bold ${config.color}`}>Data Sync Status</div>
+                        <span className="text-xs text-gray-400">{displayMessage}</span>
+                     </div>
+                </div>
+                {status === 'error' && onRetry && (
+                    <button onClick={onRetry} className="text-xs font-bold bg-gray-600 px-2.5 py-1 rounded-full hover:bg-gray-500 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400">
+                      Retry Save
+                    </button>
+                )}
+            </div>
+            {status === 'error' && errorMessage && (
+                <div className="mt-2 p-2 bg-red-900/50 text-red-300 text-xs rounded-md font-mono overflow-x-auto">
+                  {errorMessage}
+                </div>
+            )}
         </div>
     );
 };
@@ -70,22 +112,22 @@ const NavCard: React.FC<{ icon: React.ReactNode, title: string, description: str
 };
 
 
-const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onLogout, onNavigateToLeagues, projectLogs, onSaveProjectLog }) => {
-  const [systemStatus, setSystemStatus] = useState<SystemStatus>({ database: 'CHECKING', aiService: 'CHECKING' });
+const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onLogout, onNavigateToLeagues, projectLogs, onSaveProjectLog, saveStatus, saveError, onRetrySave }) => {
+  const [systemStatus, setSystemStatus] = useState<SystemStatus>({ kvDatabase: 'CHECKING', blobStorage: 'CHECKING', aiService: 'CHECKING' });
 
   const checkHealth = useCallback(async () => {
-    setSystemStatus({ database: 'CHECKING', aiService: 'CHECKING' });
+    setSystemStatus({ kvDatabase: 'CHECKING', blobStorage: 'CHECKING', aiService: 'CHECKING' });
     try {
         const response = await fetch('/api/system-health');
         if (response.ok) {
             const data = await response.json();
             setSystemStatus(data);
         } else {
-            setSystemStatus({ database: 'ERROR', aiService: 'ERROR' });
+            setSystemStatus({ kvDatabase: 'ERROR', blobStorage: 'ERROR', aiService: 'ERROR' });
         }
     } catch (error) {
         console.error("Failed to fetch system health:", error);
-        setSystemStatus({ database: 'ERROR', aiService: 'ERROR' });
+        setSystemStatus({ kvDatabase: 'ERROR', blobStorage: 'ERROR', aiService: 'ERROR' });
     }
   }, []);
 
@@ -115,24 +157,34 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onLogout, onN
         </header>
 
         <div className="mb-8 p-6 bg-gray-800/50 rounded-2xl shadow-2xl border border-gray-700">
-            <h3 className="text-lg font-semibold text-white mb-3 flex items-center justify-center">Live System Integrations</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <StatusIndicator 
-                    status={systemStatus.database} 
-                    label="Database Connection" 
-                    helpText="Performs a full read/write test to the Vercel KV store. An error here means league data cannot be saved or loaded."
-                />
-                <StatusIndicator 
-                    status={systemStatus.aiService} 
-                    label="AI Service"
-                    helpText="Checks if the Gemini API key is configured on the server. An error here means AI-powered features like coaching tips will fail."
-                />
-                <button 
-                    onClick={checkHealth}
-                    className="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold p-3 rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                    <IconRefresh className="w-5 h-5"/> Re-run Checks
-                </button>
+            <h3 className="text-lg font-semibold text-white mb-4 text-center">System Health & Status</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
+                    <StatusIndicator 
+                        status={systemStatus.kvDatabase} 
+                        label="KV Database" 
+                        helpText="Tests read/write access to the Vercel KV store (elite-academy-kv) where all league data is stored."
+                    />
+                    <StatusIndicator 
+                        status={systemStatus.blobStorage} 
+                        label="Blob Storage"
+                        helpText="Tests upload/delete access to the Vercel Blob store (discovery-league-dashboard-blob) for player profile images."
+                    />
+                     <StatusIndicator 
+                        status={systemStatus.aiService} 
+                        label="AI Service"
+                        helpText="Checks if the Gemini API key is configured on the server, required for features like coaching tips."
+                    />
+                </div>
+                <div className="flex flex-col gap-4">
+                    <SaveStateIndicator status={saveStatus} errorMessage={saveError} onRetry={onRetrySave} />
+                    <button 
+                        onClick={checkHealth}
+                        className="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold p-3 rounded-lg transition-colors flex items-center justify-center gap-2 mt-auto"
+                    >
+                        <IconRefresh className="w-5 h-5"/> Re-run Checks
+                    </button>
+                </div>
             </div>
         </div>
 

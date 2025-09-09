@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import type { AdminFeedback, PlayerFeedback, LeagueConfig, AppData, LoginCounts } from '../types';
 import { getPlayerCode, getParentCode, getRefereeCodeForCourt } from '../utils/auth';
 import { getAllCourtNames } from '../utils/leagueLogic';
 import HelpIcon from './HelpIcon';
-import { IconLightbulb, IconRefresh, IconDownload, IconUsers } from './Icon';
+import { IconLightbulb, IconRefresh, IconDownload, IconUsers, IconClipboard, IconClipboardCheck } from './Icon';
 
 interface AdminPanelProps {
   appData: AppData;
@@ -17,25 +16,35 @@ interface AdminPanelProps {
   loginCounters: Record<number, LoginCounts>;
 }
 
-const CodeRow: React.FC<{label: string, code: string, isPIN?: boolean, onReset?: () => void}> = ({label, code, isPIN, onReset}) => (
-    <div className="flex items-center justify-between text-xs">
-        <span className="text-gray-400">{label}:</span>
-        <div className="flex items-center gap-2">
-          <code 
-              className="bg-gray-900 text-yellow-300 px-2 py-1 rounded cursor-pointer hover:bg-gray-800"
-              onClick={() => navigator.clipboard.writeText(code)}
-              title="Click to copy"
-          >
-              {isPIN ? '****' : code}
-          </code>
-          {isPIN && (
-            <button onClick={onReset} title="Reset PIN to default code" className="text-gray-500 hover:text-red-400">
-              <IconRefresh className="w-3.5 h-3.5" />
-            </button>
-          )}
+const CodeRow: React.FC<{label: string, code: string, isPIN?: boolean, onReset?: () => void}> = ({label, code, isPIN, onReset}) => {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(code);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-400">{label}:</span>
+            <div className="flex items-center gap-2 bg-gray-900 px-2 py-1.5 rounded-md">
+                <span className="font-mono text-yellow-300">
+                    {isPIN ? '••••••' : code}
+                </span>
+                <button onClick={handleCopy} title="Copy code" className="text-gray-500 hover:text-white transition-colors">
+                    {copied ? <IconClipboardCheck className="w-4 h-4 text-green-400" /> : <IconClipboard className="w-4 h-4" />}
+                </button>
+                {isPIN && onReset && (
+                    <button onClick={onReset} title="Reset PIN to default code" className="text-gray-500 hover:text-red-400 transition-colors">
+                        <IconRefresh className="w-4 h-4" />
+                    </button>
+                )}
+            </div>
         </div>
-    </div>
-);
+    );
+};
+
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ appData, leagueConfig, onScheduleSave, allPlayerPINs, onResetPlayerPIN, allAdminFeedback, allPlayerFeedback, loginCounters }) => {
   const today = new Date();
@@ -164,7 +173,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ appData, leagueConfig, onSchedu
           <div>
             <h3 className="text-lg font-semibold text-white mb-3 text-center flex items-center justify-center">
               Player Access Management
-              <HelpIcon text="Manage permanent access codes. Click a code to copy it. Use the refresh icon to reset a player's custom PIN to their default code."/>
+              <HelpIcon text="Manage permanent access codes. Click the icon to copy. Use the refresh icon to reset a player's custom PIN to their default code."/>
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[400px] lg:max-h-[500px] overflow-y-auto pr-2">
               {leagueConfig.players.sort((a,b) => a.name.localeCompare(b.name)).map(player => (
