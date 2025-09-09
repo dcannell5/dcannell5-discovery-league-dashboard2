@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback } from 'react';
 import type { ProjectLogEntry, SaveStatus, SystemLog } from '../types';
 import { IconLayoutDashboard, IconUsersGroup, IconBriefcase, IconShieldCheck, IconShieldExclamation, IconRefresh, IconLogout, IconUserCheck, IconUsers, IconCloud, IconCloudCheck, IconCloudOff, IconEdit, IconClipboard, IconClipboardCheck, IconChevronDown } from './Icon';
@@ -78,8 +76,8 @@ const SaveStateIndicator: React.FC<{ status: SaveStatus; errorMessage: string | 
                      </div>
                 </div>
                 {status === 'error' && onRetry && (
-                    <button onClick={onRetry} className="text-xs font-bold bg-gray-600 px-2.5 py-1 rounded-full hover:bg-gray-500 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400">
-                      Retry
+                    <button onClick={onRetry} className="text-xs font-bold bg-red-600 px-2.5 py-1 rounded-lg hover:bg-red-500 text-white transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400">
+                      Retry Save
                     </button>
                 )}
             </div>
@@ -206,9 +204,15 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onLogout, onN
                 aiService: data.aiService.status,
             });
             
+            const serviceNameMap: Record<string, string> = {
+                kvDatabase: 'KV Database',
+                blobStorage: 'Blob Storage',
+                aiService: 'AI Service'
+            };
+
             Object.entries(data).forEach(([key, value]) => {
                 const { status, details } = value as { status: SystemStatusState, details: string };
-                const serviceName = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
+                const serviceName = serviceNameMap[key] || key;
                  addSystemLog({
                     type: 'Health Check',
                     status: status === 'OK' ? 'Success' : 'Error',
