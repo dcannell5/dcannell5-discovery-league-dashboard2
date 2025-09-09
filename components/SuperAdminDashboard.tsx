@@ -115,23 +115,23 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onLogout, onN
         </header>
 
         <div className="mb-8 p-6 bg-gray-800/50 rounded-2xl shadow-2xl border border-gray-700">
-            <h3 className="text-lg font-semibold text-white mb-3 flex items-center justify-center">System Status</h3>
+            <h3 className="text-lg font-semibold text-white mb-3 flex items-center justify-center">Live System Integrations</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <StatusIndicator 
                     status={systemStatus.database} 
                     label="Database Connection" 
-                    helpText="Checks if the app can read and write to the Vercel KV store."
+                    helpText="Performs a full read/write test to the Vercel KV store. An error here means league data cannot be saved or loaded."
                 />
                 <StatusIndicator 
                     status={systemStatus.aiService} 
                     label="AI Service"
-                    helpText="Checks if the Gemini API key is properly configured on the server."
+                    helpText="Checks if the Gemini API key is configured on the server. An error here means AI-powered features like coaching tips will fail."
                 />
                 <button 
                     onClick={checkHealth}
                     className="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold p-3 rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
-                    <IconRefresh className="w-5 h-5"/> Re-check Status
+                    <IconRefresh className="w-5 h-5"/> Re-run Checks
                 </button>
             </div>
         </div>

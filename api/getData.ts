@@ -54,10 +54,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     res.status(200).json(appData);
   } catch (error) {
-    console.error("CRITICAL: Error fetching data from KV. The database might be misconfigured. Serving initial data as a fallback.", error);
-    // On any error fetching from Redis, we fall back to the initial app data.
-    // This allows the app to load, although it will be in a non-persistent state
-    // until the database issue is resolved.
-    res.status(200).json(initialAppData);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    console.error("CRITICAL: Error fetching data from KV. The database might be misconfigured.", error);
+    // On any error fetching from Redis, we must return an error status.
+    // The frontend will catch this and display a failure message instead of loading an empty state.
+    res.status(500).json({ error: 'Failed to connect to the database.', details: errorMessage });
   }
 }
