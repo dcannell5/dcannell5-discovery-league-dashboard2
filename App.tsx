@@ -2,6 +2,7 @@
 
 
 
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, RefereeNote, UpcomingEvent, PlayerProfile, AllPlayerProfiles, AdminFeedback, PlayerFeedback, AiMessage, ProjectLogEntry, SaveStatus } from './types';
 import { SUPER_ADMIN_CODE, getRefereeCodeForCourt, getPlayerCode, getParentCode } from './utils/auth';
@@ -797,41 +798,22 @@ const App: React.FC = () => {
   let pageContent;
 
   if (currentView === 'blog') {
-      pageContent = <BlogPage 
-        logs={appData.projectLogs?.filter(log => log.isPublished) || []}
-        onBack={() => setCurrentView('app')}
-      />;
-  } else if (userState.role === 'SUPER_ADMIN') {
-      if (adminView === 'hub') {
-          pageContent = <SuperAdminDashboard 
-              onNavigateToLeagues={() => setAdminView('leagueSelector')}
-              onLogout={handleLogout}
-              projectLogs={appData.projectLogs || []}
-              onSaveProjectLog={handleSaveProjectLog}
-          />
-      } else {
-           // Admin is in league selector view, which is handled by the logic below
-           pageContent = <LoginPage 
-              appData={appData}
-              onSelectLeague={handleSetActiveLeagueId} 
-              onCreateNew={() => handleSetActiveLeagueId('new')}
-              userState={userState}
-              upcomingEvent={upcomingEvent}
-              onUpdateUpcomingEvent={handleUpdateUpcomingEvent}
-              onLoginClick={() => setShowLoginModal(true)}
-              onLogout={handleLogout}
-              onResetAllData={handleResetAllData}
-              onLoadPreset={handleLoadPreset}
-              onImport={handleImportData}
-              onBackToAdminHub={() => setAdminView('hub')}
-              onViewBlog={() => setCurrentView('blog')}
-          />;
-      }
+    pageContent = <BlogPage 
+      logs={appData.projectLogs?.filter(log => log.isPublished) || []}
+      onBack={() => setCurrentView('app')}
+    />;
   } else if (activeLeagueId === 'new') {
-      pageContent = <SetupScreen 
-          onSetupComplete={handleCreateLeague} 
-          onCancel={handleCancelCreateLeague} 
-      />;
+    pageContent = <SetupScreen 
+        onSetupComplete={handleCreateLeague} 
+        onCancel={handleCancelCreateLeague} 
+    />;
+  } else if (userState.role === 'SUPER_ADMIN' && adminView === 'hub') {
+    pageContent = <SuperAdminDashboard 
+        onNavigateToLeagues={() => setAdminView('leagueSelector')}
+        onLogout={handleLogout}
+        projectLogs={appData.projectLogs || []}
+        onSaveProjectLog={handleSaveProjectLog}
+    />
   } else if (activeLeague) {
       const viewingPlayer = viewingProfileOfPlayerId ? activeLeague.players.find(p => p.id === viewingProfileOfPlayerId) : null;
       if (viewingPlayer) {
@@ -888,6 +870,7 @@ const App: React.FC = () => {
           onResetAllData={handleResetAllData}
           onLoadPreset={handleLoadPreset}
           onImport={handleImportData}
+          onBackToAdminHub={userState.role === 'SUPER_ADMIN' ? () => setAdminView('hub') : undefined}
           onViewBlog={() => setCurrentView('blog')}
       />;
   }
