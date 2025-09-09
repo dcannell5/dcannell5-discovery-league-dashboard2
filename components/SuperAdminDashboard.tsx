@@ -147,9 +147,9 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onLogout, onN
                 />
                 <NavCard 
                     icon={<IconUsersGroup className="w-8 h-8" />}
-                    title="Player Profiles"
-                    description="Central database for all player information and history. (Coming Soon)"
-                    disabled
+                    title="Player Management"
+                    description="Manage player access codes, PINs, and profile details for any league."
+                    onClick={onNavigateToLeagues}
                 />
                  <NavCard 
                     icon={<IconUsers className="w-8 h-8" />}

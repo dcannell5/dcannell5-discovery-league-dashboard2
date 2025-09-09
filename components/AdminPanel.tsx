@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import type { AdminFeedback, PlayerFeedback, LeagueConfig, AppData, LoginCounts } from '../types';
 import { getPlayerCode, getParentCode, getRefereeCodeForCourt } from '../utils/auth';
@@ -164,8 +163,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ appData, leagueConfig, onSchedu
         <div className="space-y-6">
           <div>
             <h3 className="text-lg font-semibold text-white mb-3 text-center flex items-center justify-center">
-              Player & Parent Codes
-              <HelpIcon text="Permanent access codes. Click a code to copy it. Use the refresh icon to reset a custom PIN."/>
+              Player Access Management
+              <HelpIcon text="Manage permanent access codes. Click a code to copy it. Use the refresh icon to reset a player's custom PIN to their default code."/>
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[400px] lg:max-h-[500px] overflow-y-auto pr-2">
               {leagueConfig.players.sort((a,b) => a.name.localeCompare(b.name)).map(player => (
