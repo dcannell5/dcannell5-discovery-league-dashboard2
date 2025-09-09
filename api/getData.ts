@@ -48,6 +48,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // If setting also fails, we still serve the initial data so the app can load.
         // It will be a non-persistent session.
       }
+    } else {
+      // Data exists, so we ensure it's complete by merging it with the initial data structure.
+      // This acts as a simple, forward-compatible migration for any new top-level keys added to the app.
+      appData = { ...initialAppData, ...appData };
     }
     
     res.status(200).json(appData);
