@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import type { ProjectLogEntry, SaveStatus, SystemLog } from '../types';
 import { IconLayoutDashboard, IconUsersGroup, IconBriefcase, IconShieldCheck, IconShieldExclamation, IconRefresh, IconLogout, IconUserCheck, IconUsers, IconCloud, IconCloudCheck, IconCloudOff, IconEdit, IconClipboard, IconClipboardCheck, IconChevronDown } from './Icon';
@@ -69,7 +70,10 @@ const SaveStateIndicator: React.FC<{ status: SaveStatus; errorMessage: string | 
                 <div className="flex items-center gap-3">
                      <div className={`flex-shrink-0 ${config.color}`}>{config.icon}</div>
                      <div>
-                        <div className={`font-bold ${config.color}`}>Data Sync Status</div>
+                        <div className={`font-bold ${config.color} flex items-center`}>
+                            Data Sync Status
+                            <HelpIcon text="Shows the real-time status of data saving to the central database. Changes are automatically saved after a short delay." />
+                        </div>
                         <span className="text-xs text-gray-400">{displayMessage}</span>
                      </div>
                 </div>
@@ -250,23 +254,26 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onLogout, onN
         </header>
 
         <div className="mb-8 p-6 bg-gray-800/50 rounded-2xl shadow-2xl border border-gray-700">
-            <h3 className="text-xl font-bold text-white mb-4 text-center">System Diagnostics</h3>
+            <h3 className="text-xl font-bold text-white mb-4 text-center flex items-center justify-center">
+                System Diagnostics
+                <HelpIcon text="This panel provides a live health check of all critical backend services the application relies on." />
+            </h3>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1 space-y-4">
                      <StatusIndicator 
                         status={systemStatus.kvDatabase} 
                         label="KV Database" 
-                        helpText="Tests read/write access to elite-academy-kv."
+                        helpText="Performs a live read/write test to the Vercel KV database (elite-academy-kv). An error here means league data cannot be saved or loaded."
                     />
                     <StatusIndicator 
                         status={systemStatus.blobStorage} 
                         label="Blob Storage"
-                        helpText="Tests upload/delete access to discovery-league-dashboard-blob."
+                        helpText="Performs a live upload/delete test to Vercel Blob storage (discovery-league-dashboard-blob). An error here means player profile images cannot be uploaded or displayed."
                     />
                      <StatusIndicator 
                         status={systemStatus.aiService} 
                         label="AI Service"
-                        helpText="Checks if the Gemini API key is configured on the server."
+                        helpText="Checks for the presence of the Gemini API key on the server. An error here means AI-powered features like the Coach's Playbook and AI Assistant will not work."
                     />
                      <SaveStateIndicator status={saveStatus} errorMessage={saveError} onRetry={onRetrySave} />
                      <button 
@@ -277,7 +284,10 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onLogout, onN
                     </button>
                 </div>
                 <div className="lg:col-span-2 bg-gray-900/50 p-4 rounded-lg border border-gray-600">
-                    <h4 className="font-semibold text-white mb-3">System Event Log</h4>
+                    <h4 className="font-semibold text-white mb-3 flex items-center">
+                        System Event Log
+                        <HelpIcon text="A real-time log of important backend events, such as data loads, saves, and health checks. Expand entries for technical details and suggestions." />
+                    </h4>
                     <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
                         {systemLogs.length > 0 ? (
                            [...systemLogs].map(log => <LogEntry key={log.id} log={log} />)
