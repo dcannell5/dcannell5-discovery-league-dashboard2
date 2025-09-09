@@ -1,8 +1,4 @@
 
-
-
-
-
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, RefereeNote, UpcomingEvent, PlayerProfile, AllPlayerProfiles, AdminFeedback, PlayerFeedback, AiMessage, ProjectLogEntry, SaveStatus } from './types';
 import { SUPER_ADMIN_CODE, getRefereeCodeForCourt, getPlayerCode, getParentCode } from './utils/auth';
@@ -802,11 +798,6 @@ const App: React.FC = () => {
       logs={appData.projectLogs?.filter(log => log.isPublished) || []}
       onBack={() => setCurrentView('app')}
     />;
-  } else if (activeLeagueId === 'new') {
-    pageContent = <SetupScreen 
-        onSetupComplete={handleCreateLeague} 
-        onCancel={handleCancelCreateLeague} 
-    />;
   } else if (userState.role === 'SUPER_ADMIN' && adminView === 'hub') {
     pageContent = <SuperAdminDashboard 
         onNavigateToLeagues={() => setAdminView('leagueSelector')}
@@ -814,6 +805,11 @@ const App: React.FC = () => {
         projectLogs={appData.projectLogs || []}
         onSaveProjectLog={handleSaveProjectLog}
     />
+  } else if (activeLeagueId === 'new') {
+    pageContent = <SetupScreen 
+        onSetupComplete={handleCreateLeague} 
+        onCancel={handleCancelCreateLeague} 
+    />;
   } else if (activeLeague) {
       const viewingPlayer = viewingProfileOfPlayerId ? activeLeague.players.find(p => p.id === viewingProfileOfPlayerId) : null;
       if (viewingPlayer) {
