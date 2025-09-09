@@ -334,7 +334,7 @@ const App: React.FC = () => {
         const { config, matchups, dailyResults } = presetData;
         const presetLeagueId = 'preset-readonly';
         
-        // Create a temporary, minimal AppData structure for viewing
+        // Create a complete AppData structure for viewing to avoid state corruption.
         const readOnlyData: AppData = {
             leagues: { [presetLeagueId]: config },
             dailyResults: { [presetLeagueId]: dailyResults },
@@ -342,14 +342,20 @@ const App: React.FC = () => {
             allDailyAttendance: { [presetLeagueId]: {} },
             allPlayerProfiles: { [presetLeagueId]: {} },
             allRefereeNotes: { [presetLeagueId]: {} },
-            activeLeagueId: presetLeagueId
+            allAdminFeedback: { [presetLeagueId]: [] },
+            allPlayerFeedback: { [presetLeagueId]: [] },
+            allPlayerPINs: { [presetLeagueId]: {} },
+            loginCounters: { [presetLeagueId]: {} },
+            projectLogs: appData?.projectLogs || [], // Persist logs across sessions
+            activeLeagueId: presetLeagueId,
+            upcomingEvent: appData?.upcomingEvent, // Persist event
         };
         
         setAppData(readOnlyData);
         setIsReadOnlySession(true);
         setSaveStatus('readonly');
     }
-  }, []);
+  }, [appData]);
 
 
   const activeLeague = useMemo((): LeagueConfig | null => {
