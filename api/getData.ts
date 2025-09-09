@@ -1,4 +1,4 @@
-import { Redis } from '@upstash/redis';
+import { kv } from '@vercel/kv';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { AppData } from '../types';
 
@@ -25,29 +25,24 @@ const initialAppData: AppData = {
   },
 };
 
-const redis = new Redis({
-  url: process.env.KV_REST_API_URL!,
-  token: process.env.KV_REST_API_TOKEN!,
-});
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    let appData: AppData | null = await redis.get('discoveryLeagueData');
+    let appData: AppData | null = await kv.get('discoveryLeagueData');
 
     // If no data exists in the database (e.g., first-time run),
     // initialize it with a clean, empty state.
     if (!appData) {
-      console.log('No data found in Redis, attempting to initialize.');
+      console.log('No data found in KV, attempting to initialize.');
       appData = initialAppData;
       try {
-        await redis.set('discoveryLeagueData', appData);
-        console.log('Successfully initialized Redis with initial data.');
+        await kv.set('discoveryLeagueData', appData);
+        console.log('Successfully initialized KV with initial data.');
       } catch (initError) {
-        console.error("CRITICAL: Failed to initialize Redis. Serving initial data without persistence.", initError);
+        console.error("CRITICAL: Failed to initialize KV. Serving initial data without persistence.", initError);
         // If setting also fails, we still serve the initial data so the app can load.
         // It will be a non-persistent session.
       }
@@ -59,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     res.status(200).json(appData);
   } catch (error) {
-    console.error("CRITICAL: Error fetching data from Redis. The database might be misconfigured. Serving initial data as a fallback.", error);
+    console.error("CRITICAL: Error fetching data from KV. The database might be misconfigured. Serving initial data as a fallback.", error);
     // On any error fetching from Redis, we fall back to the initial app data.
     // This allows the app to load, although it will be in a non-persistent state
     // until the database issue is resolved.

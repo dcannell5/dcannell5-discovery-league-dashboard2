@@ -1,10 +1,5 @@
-import { Redis } from '@upstash/redis';
+import { kv } from '@vercel/kv';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-
-const redis = new Redis({
-  url: process.env.KV_REST_API_URL!,
-  token: process.env.KV_REST_API_TOKEN!,
-});
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
@@ -14,12 +9,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let dbStatus: 'OK' | 'ERROR' = 'OK';
   let aiStatus: 'OK' | 'ERROR' = 'OK';
 
-  // Check 1: Redis Database Connection
+  // Check 1: Vercel KV Database Connection
   try {
     // Perform a quick, non-destructive operation to test the connection.
-    await redis.get('health_check');
+    await kv.get('health_check');
   } catch (error) {
-    console.error("Health Check: Redis connection failed.", error);
+    console.error("Health Check: Vercel KV connection failed.", error);
     dbStatus = 'ERROR';
   }
 

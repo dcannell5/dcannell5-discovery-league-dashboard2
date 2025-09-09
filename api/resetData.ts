@@ -1,10 +1,5 @@
-import { Redis } from '@upstash/redis';
+import { kv } from '@vercel/kv';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-
-const redis = new Redis({
-  url: process.env.KV_REST_API_URL!,
-  token: process.env.KV_REST_API_TOKEN!,
-});
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -13,10 +8,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // This is a destructive operation. In a real app, this would be heavily protected by auth checks.
-    await redis.del('discoveryLeagueData');
+    await kv.del('discoveryLeagueData');
     res.status(200).json({ success: true, message: 'Data reset successfully.' });
   } catch (error) {
-    console.error("Error resetting data in Redis:", error);
+    console.error("Error resetting data in KV:", error);
     res.status(500).json({ error: 'Failed to reset data' });
   }
 }
