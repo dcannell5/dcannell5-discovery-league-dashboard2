@@ -2,8 +2,7 @@ import { kv } from '@vercel/kv';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { AppData } from '../types';
 
-// A minimal, empty structure to initialize the database on first load.
-// This prevents overwriting user data with a hardcoded state.
+// The initial data structure acts as a schema and default values.
 const initialAppData: AppData = {
   leagues: {},
   dailyResults: {},
@@ -16,6 +15,7 @@ const initialAppData: AppData = {
   allPlayerPINs: {},
   loginCounters: {},
   projectLogs: [],
+  systemLogs: [],
   activeLeagueId: null,
   upcomingEvent: {
     title: 'Discovery League Summer Camp',
@@ -25,39 +25,68 @@ const initialAppData: AppData = {
   },
 };
 
+// Define the keys we expect to fetch from KV
+const APP_DATA_KEYS: (keyof AppData)[] = Object.keys(initialAppData) as (keyof AppData)[];
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    let appData: AppData | null = await kv.get('discoveryLeagueData');
+    // Fetch all keys at once
+    const values = await kv.mget<Array<AppData[keyof AppData]>>(...APP_DATA_KEYS);
+    
+    const fetchedData: Partial<AppData> = {};
+    let dataExists = false;
+    
+    APP_DATA_KEYS.forEach((key, index) => {
+        if (values[index] !== null) {
+            fetchedData[key] = values[index] as any;
+            dataExists = true;
+        }
+    });
 
-    // If no data exists in the database (e.g., first-time run),
-    // initialize it with a clean, empty state.
-    if (!appData) {
-      console.log('No data found in KV, attempting to initialize.');
-      appData = initialAppData;
-      try {
-        await kv.set('discoveryLeagueData', appData);
-        console.log('Successfully initialized KV with initial data.');
-      } catch (initError) {
-        console.error("CRITICAL: Failed to initialize KV. Serving initial data without persistence.", initError);
-        // If setting also fails, we still serve the initial data so the app can load.
-        // It will be a non-persistent session.
-      }
+    let finalAppData: AppData;
+
+    // This handles migration from the old single-key format.
+    if (!dataExists) {
+        const oldData: AppData | null = await kv.get('discoveryLeagueData');
+        if (oldData) {
+            console.log("Migrating data from old single-key format.");
+            finalAppData = { ...initialAppData, ...oldData };
+            // Save data in the new format
+             const multi = kv.multi();
+             for (const key of APP_DATA_KEYS) {
+                 if (finalAppData[key] !== undefined) {
+                    multi.set(key, finalAppData[key]);
+                 }
+             }
+             await multi.exec();
+             // Optionally, delete the old key after successful migration
+             await kv.del('discoveryLeagueData');
+             console.log("Migration complete.");
+        } else {
+            console.log('No data found for any key in KV, initializing.');
+            finalAppData = initialAppData;
+            // Initialize the database with the split-key structure
+            const multiInit = kv.multi();
+            for (const key of APP_DATA_KEYS) {
+                multiInit.set(key, initialAppData[key]);
+            }
+            await multiInit.exec();
+            console.log('Successfully initialized KV with initial data in split-key format.');
+        }
     } else {
-      // Data exists, so we ensure it's complete by merging it with the initial data structure.
-      // This acts as a simple, forward-compatible migration for any new top-level keys added to the app.
-      appData = { ...initialAppData, ...appData };
+      // Merge fetched data with defaults to ensure all keys are present
+      finalAppData = { ...initialAppData, ...fetchedData };
     }
     
-    res.status(200).json(appData);
+    res.status(200).json(finalAppData);
+
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     console.error("CRITICAL: Error fetching data from KV. The database might be misconfigured.", error);
-    // On any error fetching from Redis, we must return an error status.
-    // The frontend will catch this and display a failure message instead of loading an empty state.
     res.status(500).json({ error: 'Failed to connect to the database.', details: errorMessage });
   }
 }

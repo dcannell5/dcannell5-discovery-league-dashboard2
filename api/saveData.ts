@@ -10,17 +10,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const appData = req.body as AppData;
 
-    if (!appData || !appData.leagues) {
-        return res.status(400).json({ error: 'Invalid appData format received.' });
+    if (!appData || typeof appData !== 'object') {
+        return res.status(400).json({ error: 'Invalid appData format: not an object.' });
     }
     
-    // Log the size of the data to monitor for potential limits
-    const dataSize = JSON.stringify(appData).length;
-    console.log(`Received data payload of size: ${Math.round(dataSize / 1024)} KB`);
+    // Use a transaction to set all keys atomically, which is safer and more efficient.
+    const multi = kv.multi();
 
-    await kv.set('discoveryLeagueData', appData);
+    // Iterate over the top-level keys of the AppData object and set each one individually in the KV store.
+    // This avoids hitting the single-value size limit of Vercel KV.
+    for (const key in appData) {
+        if (Object.prototype.hasOwnProperty.call(appData, key)) {
+            const typedKey = key as keyof AppData;
+            // Ensure we don't try to save undefined values
+            if (appData[typedKey] !== undefined) {
+                multi.set(typedKey, appData[typedKey]);
+            }
+        }
+    }
+    
+    await multi.exec();
     
     res.status(200).json({ success: true });
+
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     console.error("Critical Error saving data to KV:", errorMessage);
