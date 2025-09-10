@@ -194,6 +194,7 @@ export interface AppData {
     loginCounters?: Record<string, Record<number, LoginCounts>>; // leagueId -> playerId -> LoginCounts
     projectLogs?: ProjectLogEntry[]; // Global project logs for the build blog
     systemLogs?: SystemLog[]; // Global system logs for admin diagnostics
+    teamOfTheDay?: Record<string, Record<number, { teamPlayerIds: number[]; summary: string }>>; // leagueId -> day -> Team of the Day
     activeLeagueId?: string | null;
     upcomingEvent?: UpcomingEvent;
 }

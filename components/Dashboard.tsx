@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Player, AllDailyResults, GameResult, UserState, AllDailyMatchups, PlayerWithStats, AllDailyAttendance, LeagueConfig, CourtResults, CoachingTip, AdminFeedback, PlayerFeedback, AppData, LoginCounts } from '../types';
 import { generateCoachingTip } from '../services/geminiService';
@@ -18,6 +20,7 @@ import LinksAndShare from './LinksAndShare';
 import PlayerAttendancePanel from './PlayerAttendancePanel';
 import { IconTrophy, IconLightbulb, IconQuote, IconVideo, IconLock, IconMessage } from './Icon';
 import PlayerCard from './PlayerCard';
+import TeamOfTheDay from './TeamOfTheDay';
 
 interface DashboardProps {
     appData: AppData;
@@ -45,6 +48,8 @@ interface DashboardProps {
     allPlayerPINs: Record<number, string>;
     onResetPlayerPIN: (playerId: number) => void;
     loginCounters: Record<number, LoginCounts>;
+    teamOfTheDay: Record<number, { teamPlayerIds: number[], summary: string }>;
+    setTeamOfTheDay: React.Dispatch<React.SetStateAction<Record<number, { teamPlayerIds: number[], summary: string }>>>;
 }
 
 const InfoCard: React.FC<{icon: React.ReactNode, title: string, children: React.ReactNode, className?: string}> = ({icon, title, children, className}) => (
@@ -63,7 +68,8 @@ const Dashboard: React.FC<DashboardProps> = ({
     onSetPlayerDailyAttendance,
     onToggleDayLock,
     gameResults, setGameResults, allMatchups, setAllMatchups, allAttendance, setAllAttendance,
-    allAdminFeedback, allPlayerFeedback, allPlayerPINs, onResetPlayerPIN, loginCounters
+    allAdminFeedback, allPlayerFeedback, allPlayerPINs, onResetPlayerPIN, loginCounters,
+    teamOfTheDay, setTeamOfTheDay
 }) => {
   const [currentDay, setCurrentDay] = useState<number>(1);
   const [coachingTip, setCoachingTip] = useState<CoachingTip | null>(null);
@@ -72,6 +78,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [isSwapMode, setIsSwapMode] = useState(false);
   const [playerToSwap, setPlayerToSwap] = useState<{ player: Player; gameIndex: number } | null>(null);
   const [printableContent, setPrintableContent] = useState<React.ReactNode | null>(null);
+  const [isGeneratingTeam, setIsGeneratingTeam] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
   const realCurrentLeagueDay = useMemo(() => getActiveDay(new Date(), leagueConfig), [leagueConfig]);
   const isDayLocked = !!leagueConfig.lockedDays?.[currentDay];
@@ -421,6 +429,48 @@ const Dashboard: React.FC<DashboardProps> = ({
     setPrintableContent(printableComponent);
   };
 
+  const handleGenerateTeamOfTheDay = useCallback(async () => {
+        setIsGeneratingTeam(true);
+        setGenerationError(null);
+        try {
+            // Need the full player stats for the day
+            const stats = initializePlayerStats(leagueConfig.players);
+            processDayResults(stats, currentDay, gameResults[currentDay], allMatchups[currentDay], allAttendance[currentDay]);
+            const playerStatsForDay = Object.values(stats).map(p => ({
+                id: p.id,
+                name: p.name,
+                dailyPoints: p.dailyPoints[currentDay] || 0,
+            }));
+
+            const response = await fetch('/api/generateTeamOfTheDay', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    day: currentDay,
+                    leagueConfig,
+                    dailyResults: { [currentDay]: gameResults[currentDay] },
+                    dailyMatchups: { [currentDay]: allMatchups[currentDay] },
+                    playerStats: playerStatsForDay
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to generate from API.');
+            }
+
+            const data = await response.json();
+            setTeamOfTheDay(prev => ({ ...prev, [currentDay]: data }));
+
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+            console.error("Failed to generate team of the day:", message);
+            setGenerationError(message);
+        } finally {
+            setIsGeneratingTeam(false);
+        }
+    }, [currentDay, leagueConfig, gameResults, allMatchups, allAttendance, setTeamOfTheDay]);
+
   useEffect(() => {
     const handleAfterPrint = () => {
       setPrintableContent(null);
@@ -504,6 +554,18 @@ const Dashboard: React.FC<DashboardProps> = ({
               />
               <Leaderboard players={sortedDisplayPlayers.slice(0, 3)} />
           </div>
+
+          {isDayLocked && (
+            <TeamOfTheDay
+                day={currentDay}
+                players={leagueConfig.players}
+                teamData={teamOfTheDay[currentDay]}
+                userRole={userState.role}
+                onGenerate={handleGenerateTeamOfTheDay}
+                isLoading={isGeneratingTeam}
+                error={generationError}
+            />
+          )}
 
           <ScoreEntryDashboard 
               currentDay={currentDay}

@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, RefereeNote, UpcomingEvent, PlayerProfile, AllPlayerProfiles, AdminFeedback, PlayerFeedback, AiMessage, ProjectLogEntry, SaveStatus, SystemLog } from './types';
 import { SUPER_ADMIN_CODE, getRefereeCodeForCourt, getPlayerCode, getParentCode } from './utils/auth';
@@ -379,6 +380,7 @@ const App: React.FC = () => {
             allPlayerFeedback: { [presetLeagueId]: [] },
             allPlayerPINs: { [presetLeagueId]: {} },
             loginCounters: { [presetLeagueId]: {} },
+            teamOfTheDay: { [presetLeagueId]: {} },
             projectLogs: appData?.projectLogs || [], // Persist logs across sessions
             systemLogs: appData?.systemLogs || [], // Persist logs
             activeLeagueId: presetLeagueId,
@@ -397,7 +399,7 @@ const App: React.FC = () => {
   }, [appData, activeLeagueId]);
   
   const activeDataSlices = useMemo(() => {
-    if (!appData || !activeLeagueId) return { dailyResults: {}, allDailyMatchups: {}, allDailyAttendance: {}, allPlayerProfiles: {}, allRefereeNotes: {}, allAdminFeedback: [], allPlayerFeedback: [], allPlayerPINs: {}, loginCounters: {} };
+    if (!appData || !activeLeagueId) return { dailyResults: {}, allDailyMatchups: {}, allDailyAttendance: {}, allPlayerProfiles: {}, allRefereeNotes: {}, allAdminFeedback: [], allPlayerFeedback: [], allPlayerPINs: {}, loginCounters: {}, teamOfTheDay: {} };
     return {
       dailyResults: appData.dailyResults[activeLeagueId] || {},
       allDailyMatchups: appData.allDailyMatchups[activeLeagueId] || {},
@@ -408,6 +410,7 @@ const App: React.FC = () => {
       allPlayerFeedback: appData.allPlayerFeedback?.[activeLeagueId] || [],
       allPlayerPINs: appData.allPlayerPINs?.[activeLeagueId] || {},
       loginCounters: appData.loginCounters?.[activeLeagueId] || {},
+      teamOfTheDay: appData.teamOfTheDay?.[activeLeagueId] || {},
     };
   }, [appData, activeLeagueId]);
 
@@ -425,6 +428,7 @@ const App: React.FC = () => {
       allPlayerFeedback: { ...(prev.allPlayerFeedback || {}), [newLeagueId]: [] },
       allPlayerPINs: { ...(prev.allPlayerPINs || {}), [newLeagueId]: {} },
       loginCounters: { ...(prev.loginCounters || {}), [newLeagueId]: {} },
+      teamOfTheDay: { ...(prev.teamOfTheDay || {}), [newLeagueId]: {} },
       activeLeagueId: newLeagueId,
     }));
   }, [updateAppData]);
@@ -573,6 +577,8 @@ const App: React.FC = () => {
         const { [activeLeagueId]: ________, ...remainingAdminFeedback } = prev.allAdminFeedback || {};
         const { [activeLeagueId]: _________, ...remainingPlayerFeedback } = prev.allPlayerFeedback || {};
         const { [activeLeagueId]: __________, ...remainingLoginCounters } = prev.loginCounters || {};
+        const { [activeLeagueId]: ___________, ...remainingTeamOfTheDay } = prev.teamOfTheDay || {};
+
 
         return {
           ...prev,
@@ -586,6 +592,7 @@ const App: React.FC = () => {
           allPlayerFeedback: remainingPlayerFeedback,
           allPlayerPINs: remainingAllPlayerPINs,
           loginCounters: remainingLoginCounters,
+          teamOfTheDay: remainingTeamOfTheDay,
           activeLeagueId: null,
         };
       });
@@ -612,6 +619,7 @@ const App: React.FC = () => {
   const setDailyResults = createActiveLeagueSetter<AllDailyResults>('dailyResults');
   const setAllDailyMatchups = createActiveLeagueSetter<AllDailyMatchups>('allDailyMatchups');
   const setAllDailyAttendance = createActiveLeagueSetter<AllDailyAttendance>('allDailyAttendance');
+  const setTeamOfTheDay = createActiveLeagueSetter<Record<number, { teamPlayerIds: number[], summary: string }>>('teamOfTheDay');
   
   const handleSetPlayerDailyAttendance = useCallback((day: number, playerId: number, isPresent: boolean) => {
     if (!activeLeague || activeLeague.lockedDays?.[day]) return;
@@ -905,6 +913,8 @@ const App: React.FC = () => {
               allPlayerPINs={activeDataSlices.allPlayerPINs}
               onResetPlayerPIN={handleResetPlayerPIN}
               loginCounters={activeDataSlices.loginCounters}
+              teamOfTheDay={activeDataSlices.teamOfTheDay}
+              setTeamOfTheDay={setTeamOfTheDay}
           />;
       }
   } else {
