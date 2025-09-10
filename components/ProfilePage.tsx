@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Player, PlayerProfile, UserState, RefereeNote, SystemLog, LeagueConfig, AllDailyResults, AllDailyMatchups, AllDailyAttendance } from '../types';
 import { getPlayerCode, getParentCode } from '../utils/auth';
@@ -287,7 +288,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ player, profile, userState, o
                         gameIndex,
                         courtName,
                         teammates: playerTeam.filter(p => p.id !== player.id),
-                        opponents: opponentTeam,
+                        opponents: opponentTeam || [],
                         playerScore,
                         opponentScore,
                         outcome,

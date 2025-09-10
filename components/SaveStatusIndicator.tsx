@@ -4,6 +4,7 @@ import type { SaveStatus } from '../types';
 
 interface SaveStatusIndicatorProps {
   status: SaveStatus;
+  isReadOnly?: boolean;
   errorMessage?: string | null;
   onRetry?: () => void;
 }
@@ -47,17 +48,19 @@ const statusConfig = {
   }
 };
 
-const SaveStatusIndicator: React.FC<SaveStatusIndicatorProps> = ({ status, errorMessage, onRetry }) => {
+const SaveStatusIndicator: React.FC<SaveStatusIndicatorProps> = ({ status, isReadOnly, errorMessage, onRetry }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  
+  const effectiveStatus = isReadOnly ? 'readonly' : status;
 
-  if (status === 'idle') {
+  if (effectiveStatus === 'idle') {
     return null;
   }
 
-  const { icon, text, color, bgColor } = statusConfig[status];
-  const displayMessage = status === 'saving' && errorMessage ? errorMessage : text;
+  const { icon, text, color, bgColor } = statusConfig[effectiveStatus];
+  const displayMessage = effectiveStatus === 'saving' && errorMessage ? errorMessage : text;
   
-  const isClickableError = status === 'error' && errorMessage;
+  const isClickableError = effectiveStatus === 'error' && errorMessage;
 
   const handleContainerClick = () => {
     if (isClickableError) {
@@ -71,8 +74,8 @@ const SaveStatusIndicator: React.FC<SaveStatusIndicatorProps> = ({ status, error
     setIsExpanded(false);
   };
 
-  // Render non-error states as a simple lozenge
-  if (status !== 'error') {
+  // For all states except error, render a compact pill-shaped indicator.
+  if (effectiveStatus !== 'error') {
     return (
       <div
         className={`fixed bottom-5 right-5 z-50 flex items-center gap-3 px-4 py-2 rounded-full shadow-lg border border-gray-600 backdrop-blur-md transition-all duration-300 ${bgColor} ${color}`}
@@ -85,10 +88,10 @@ const SaveStatusIndicator: React.FC<SaveStatusIndicatorProps> = ({ status, error
     );
   }
 
-  // Render error state as a more detailed, expandable card
+  // For the error state, render a more prominent, expandable rectangle.
   return (
     <div
-      className={`fixed bottom-5 right-5 z-50 flex flex-col items-start p-3 rounded-xl shadow-lg border border-gray-600 backdrop-blur-md transition-all duration-300 ${bgColor} ${color} ${isClickableError ? 'cursor-pointer' : ''} ${isExpanded ? 'max-w-sm w-full' : ''}`}
+      className={`fixed bottom-5 right-5 z-50 flex flex-col items-start p-3 rounded-lg shadow-lg border border-gray-600 backdrop-blur-md transition-all duration-300 ${bgColor} ${color} ${isClickableError ? 'cursor-pointer' : ''} ${isExpanded ? 'max-w-sm w-full' : ''}`}
       role="alert"
       aria-live="assertive"
       onClick={handleContainerClick}
