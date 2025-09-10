@@ -1,12 +1,61 @@
 
-
-
-
-import React, { useState, useEffect } from 'react';
-import type { Player, PlayerProfile, UserState, RefereeNote, SystemLog } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import type { Player, PlayerProfile, UserState, RefereeNote, SystemLog, LeagueConfig, AllDailyResults, AllDailyMatchups, AllDailyAttendance } from '../types';
 import { getPlayerCode, getParentCode } from '../utils/auth';
-import { IconUserCircle, IconEdit, IconMessage, IconLock, IconLightbulb } from './Icon';
+import { IconUserCircle, IconEdit, IconMessage, IconLock, IconLightbulb, IconCalendar } from './Icon';
 import HelpIcon from './HelpIcon';
+
+interface GameHistory {
+  gameIndex: number;
+  courtName: string;
+  teammates: Player[];
+  opponents: Player[];
+  playerScore: number | null | undefined;
+  opponentScore: number | null | undefined;
+  outcome: 'win' | 'loss' | 'tie' | 'unplayed';
+  attendance: boolean;
+}
+
+const GameHistoryCard: React.FC<{game: GameHistory}> = ({ game }) => {
+    const outcomeStyles = {
+        win: { text: 'text-green-400', bg: 'bg-green-500/10', border: 'border-green-500/30' },
+        loss: { text: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/30' },
+        tie: { text: 'text-gray-400', bg: 'bg-gray-500/10', border: 'border-gray-500/30' },
+        unplayed: { text: 'text-gray-500', bg: 'bg-gray-700/20', border: 'border-gray-600/30' }
+    };
+    const style = outcomeStyles[game.outcome];
+
+    return (
+        <div className={`p-4 rounded-lg border ${style.border} ${style.bg}`}>
+            <div className="flex justify-between items-center mb-2">
+                <p className="text-sm font-semibold text-gray-300">
+                    {game.courtName} - Game {game.gameIndex + 1}
+                </p>
+                {!game.attendance && <span className="text-xs font-bold bg-gray-600 text-gray-300 px-2 py-0.5 rounded-full">ABSENT</span>}
+            </div>
+            
+            <div className="flex justify-between items-center">
+                 <div className="text-center">
+                    <p className="text-xs text-gray-400">Your Team</p>
+                    <p className={`text-2xl font-bold ${style.text}`}>{game.playerScore ?? '-'}</p>
+                </div>
+                <div className="text-center">
+                    <p className="text-xs text-gray-400">vs</p>
+                    <p className={`text-sm font-bold uppercase ${style.text}`}>{game.outcome}</p>
+                </div>
+                 <div className="text-center">
+                    <p className="text-xs text-gray-400">Opponent</p>
+                    <p className="text-2xl font-bold text-gray-300">{game.opponentScore ?? '-'}</p>
+                </div>
+            </div>
+
+            <div className="mt-3 pt-3 border-t border-gray-600/50 text-xs">
+                <p><span className="font-semibold text-gray-400">With:</span> {game.teammates.map(p => p.name).join(', ') || 'N/A'}</p>
+                <p className="mt-1"><span className="font-semibold text-gray-400">Against:</span> {game.opponents.map(p => p.name).join(', ') || 'N/A'}</p>
+            </div>
+        </div>
+    );
+};
 
 interface ProfilePageProps {
   player: Player;
@@ -19,6 +68,10 @@ interface ProfilePageProps {
   onSetPIN: (pin: string) => void;
   onSavePlayerFeedback: (feedbackText: string) => void;
   addSystemLog: (logData: Omit<SystemLog, 'id' | 'timestamp'>) => void;
+  leagueConfig: LeagueConfig;
+  gameResults: AllDailyResults;
+  allMatchups: AllDailyMatchups;
+  allAttendance: AllDailyAttendance;
 }
 
 const PINModal: React.FC<{
@@ -170,7 +223,7 @@ const PlayerFeedbackModal: React.FC<{
 };
 
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ player, profile, userState, onSave, onBack, refereeNotes, currentPIN, onSetPIN, onSavePlayerFeedback, addSystemLog }) => {
+const ProfilePage: React.FC<ProfilePageProps> = ({ player, profile, userState, onSave, onBack, refereeNotes, currentPIN, onSetPIN, onSavePlayerFeedback, addSystemLog, leagueConfig, gameResults, allMatchups, allAttendance }) => {
   const [localProfile, setLocalProfile] = useState<PlayerProfile>(profile);
   const [isEditing, setIsEditing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -181,6 +234,75 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ player, profile, userState, o
   useEffect(() => {
     setLocalProfile(profile);
   }, [profile]);
+  
+  const playerGames = useMemo(() => {
+    const history: { day: number, games: GameHistory[] }[] = [];
+    if (!leagueConfig || !allMatchups) return [];
+
+    for (let day = 1; day <= leagueConfig.totalDays; day++) {
+        const matchupsForDay = allMatchups[day];
+        if (!matchupsForDay) continue;
+
+        const dayGames: GameHistory[] = [];
+
+        for (const courtName in matchupsForDay) {
+            const courtMatchups = matchupsForDay[courtName];
+            
+            courtMatchups.forEach((game, gameIndex) => {
+                const teamAIds = game.teamA.map(p => p.id);
+                const teamBIds = game.teamB.map(p => p.id);
+
+                let playerTeam = null;
+                let opponentTeam = null;
+                let playerTeamKey: 'teamA' | 'teamB' | null = null;
+
+                if (teamAIds.includes(player.id)) {
+                    playerTeam = game.teamA;
+                    opponentTeam = game.teamB;
+                    playerTeamKey = 'teamA';
+                } else if (teamBIds.includes(player.id)) {
+                    playerTeam = game.teamB;
+                    opponentTeam = game.teamA;
+                    playerTeamKey = 'teamB';
+                }
+
+                if (playerTeam && playerTeamKey) {
+                    const result = gameResults[day]?.[courtName]?.[gameIndex];
+                    const attendance = allAttendance[day]?.[player.id]?.[gameIndex] ?? true;
+                    
+                    let outcome: GameHistory['outcome'] = 'unplayed';
+                    let playerScore: number | null | undefined;
+                    let opponentScore: number | null | undefined;
+
+                    if (result && result !== 'unplayed' && result.teamAScore !== null && result.teamBScore !== null) {
+                        playerScore = playerTeamKey === 'teamA' ? result.teamAScore : result.teamBScore;
+                        opponentScore = playerTeamKey === 'teamA' ? result.teamBScore : result.teamAScore;
+
+                        if (playerScore > opponentScore) outcome = 'win';
+                        else if (playerScore < opponentScore) outcome = 'loss';
+                        else outcome = 'tie';
+                    }
+
+                    dayGames.push({
+                        gameIndex,
+                        courtName,
+                        teammates: playerTeam.filter(p => p.id !== player.id),
+                        opponents: opponentTeam,
+                        playerScore,
+                        opponentScore,
+                        outcome,
+                        attendance
+                    });
+                }
+            });
+        }
+        if (dayGames.length > 0) {
+            history.push({ day, games: dayGames.sort((a,b) => a.gameIndex - b.gameIndex) });
+        }
+    }
+    return history.reverse();
+  }, [player.id, leagueConfig, allMatchups, gameResults, allAttendance]);
+
 
   const canEditProfile = userState.role === 'SUPER_ADMIN' || (userState.role === 'PLAYER' && userState.playerId === player.id);
   const canEditContacts = canEditProfile || (userState.role === 'PARENT' && userState.playerId === player.id);
@@ -331,6 +453,30 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ player, profile, userState, o
             )}
           </div>
         </div>
+
+        <div className="mt-8 bg-gray-800/50 p-6 md:p-8 rounded-2xl shadow-2xl border border-gray-700">
+            <h3 className="text-xl font-bold text-yellow-400 mb-4 flex items-center gap-3">
+                <IconCalendar className="w-6 h-6" />
+                Game History
+            </h3>
+            {playerGames.length > 0 ? (
+                <div className="space-y-6">
+                    {playerGames.map(dayData => (
+                        <div key={dayData.day}>
+                            <h4 className="text-lg font-semibold text-white mb-3 border-b border-gray-700 pb-2">Day {dayData.day}</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {dayData.games.map(game => (
+                                    <GameHistoryCard key={`${dayData.day}-${game.gameIndex}`} game={game} />
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <p className="text-gray-500 text-center py-4">No game history available yet.</p>
+            )}
+        </div>
+
 
         {canProvideFeedback && (
           <div className="mt-8 bg-gray-800/50 p-6 md:p-8 rounded-2xl shadow-2xl border border-gray-700">

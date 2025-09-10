@@ -873,6 +873,10 @@ const App: React.FC = () => {
               onSetPIN={(pin) => handleSetPlayerPIN(viewingPlayer.id, pin)}
               onSavePlayerFeedback={handleSavePlayerFeedback}
               addSystemLog={addSystemLog}
+              leagueConfig={activeLeague}
+              gameResults={activeDataSlices.dailyResults}
+              allMatchups={activeDataSlices.allDailyMatchups}
+              allAttendance={activeDataSlices.allDailyAttendance}
           />;
       } else {
           pageContent = <Dashboard
