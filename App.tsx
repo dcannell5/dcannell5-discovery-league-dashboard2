@@ -129,22 +129,33 @@ const App: React.FC = () => {
         setLoadingError(null);
         try {
             const response = await fetch('/api/getData');
-            if (!response.ok) {
+            const contentType = response.headers.get('content-type');
+
+            if (response.ok && contentType && contentType.includes('application/json')) {
+                const data: AppData = await response.json();
+                setAppData(data);
+                setSystemLogs(data.systemLogs || []);
+                setSaveStatus('saved');
+                addSystemLog({ type: 'Data Load', status: 'Success', message: 'Application data loaded successfully.' });
+            } else {
+                const responseText = await response.text();
                 let errorDetails = `Server responded with status ${response.status}.`;
-                try {
-                    const errorJson = await response.json();
-                    errorDetails = errorJson.details || errorJson.error || JSON.stringify(errorJson);
-                } catch (e) {
-                    const errorText = await response.text();
-                    if (errorText) errorDetails = errorText;
+                
+                // If it's HTML, we know it's a server crash page.
+                if (responseText.trim().toLowerCase().startsWith('<!doctype html')) {
+                     errorDetails = "The server returned an HTML error page instead of data. This commonly happens when server environment variables (e.g., database credentials) are missing or incorrect, causing a crash. Please check the Vercel deployment logs for specific errors.";
+                } else {
+                    // It might be a JSON error that we can parse, or just plain text.
+                    try {
+                        const errorJson = JSON.parse(responseText);
+                        errorDetails = errorJson.details || errorJson.error || JSON.stringify(errorJson);
+                    } catch (e) {
+                       // Not JSON, use the raw text.
+                       if(responseText) errorDetails = responseText;
+                    }
                 }
                 throw new Error(errorDetails);
             }
-            const data: AppData = await response.json();
-            setAppData(data);
-            setSystemLogs(data.systemLogs || []);
-            setSaveStatus('saved');
-            addSystemLog({ type: 'Data Load', status: 'Success', message: 'Application data loaded successfully.' });
         } catch (error) {
             console.error("Could not load initial application data:", error);
             const errorMessage = error instanceof Error ? error.message : String(error);
@@ -853,9 +864,6 @@ const App: React.FC = () => {
                     <div className="text-left bg-gray-900/70 p-4 rounded-lg mt-4 border border-gray-700">
                         <h3 className="font-semibold text-yellow-400 mb-2">Error Details:</h3>
                         <pre className="text-sm text-gray-300 whitespace-pre-wrap font-mono">{loadingError}</pre>
-                        <p className="text-xs text-gray-500 mt-3">
-                            This error often indicates that the server's environment variables (e.g., database credentials) are not set correctly.
-                        </p>
                     </div>
                  )}
              </div>
