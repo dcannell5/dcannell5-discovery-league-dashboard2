@@ -1,9 +1,9 @@
 
-import { createClient } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
 import { put, head, del } from '@vercel/blob';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const kv = createClient({
+const redis = new Redis({
   url: process.env.leaguestorage_KV_REST_API_URL!,
   token: process.env.leaguestorage_KV_REST_API_TOKEN!,
 });
@@ -20,16 +20,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const checkKv = async (): Promise<HealthStatus> => {
     try {
-      const testKey = 'health_check_kv';
+      const testKey = 'health_check_redis';
       const testValue = `health-check-${Date.now()}`;
-      await kv.set(testKey, testValue, { ex: 10 });
-      const readValue = await kv.get(testKey);
+      await redis.set(testKey, testValue, { ex: 10 });
+      const readValue = await redis.get(testKey);
       if (readValue !== testValue) throw new Error('Read/write validation failed.');
-      await kv.del(testKey);
+      await redis.del(testKey);
       return { status: 'OK', details: 'Successfully connected and performed read/write test.' };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error("Health Check: Vercel KV connection failed.", errorMessage);
+      console.error("Health Check: Upstash Redis connection failed.", errorMessage);
       return { status: 'ERROR', details: errorMessage };
     }
   };

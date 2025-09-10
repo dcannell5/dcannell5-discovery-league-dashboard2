@@ -1,10 +1,10 @@
 
-import { createClient } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { AppData } from '../types';
 import { initialAppData } from '../data/initialData';
 
-const kv = createClient({
+const redis = new Redis({
   url: process.env.leaguestorage_KV_REST_API_URL!,
   token: process.env.leaguestorage_KV_REST_API_TOKEN!,
 });
@@ -17,42 +17,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Fetch all keys at once for efficiency.
-    const values = await kv.mget<Array<AppData[keyof AppData]>>(...APP_DATA_KEYS);
+    const values = await redis.mget<string[]>(...APP_DATA_KEYS);
     
-    // Check if at least one key returned a non-null value, indicating data exists.
     const dataExists = values.some(v => v !== null);
 
     if (dataExists) {
-      // If data exists, construct the AppData object from the fetched values.
       const fetchedData: Partial<AppData> = {};
       APP_DATA_KEYS.forEach((key, index) => {
-        if (values[index] !== null) {
-            fetchedData[key] = values[index] as any;
+        const value = values[index];
+        if (value !== null) {
+          try {
+            fetchedData[key] = JSON.parse(value);
+          } catch (e) {
+            console.warn(`Could not parse JSON for key "${key}", using raw value.`);
+            fetchedData[key] = value as any;
+          }
         }
       });
 
-      // Merge fetched data with defaults to ensure the data structure is always complete.
       const finalAppData: AppData = { ...initialAppData, ...fetchedData };
       return res.status(200).json(finalAppData);
 
     } else {
-      // If no data exists, this is a first-time run. Initialize the database.
-      console.log('No data found in KV, initializing.');
-      const multiInit = kv.multi();
+      console.log('No data found in Redis, initializing.');
+      const multiInit = redis.pipeline();
       for (const key of APP_DATA_KEYS) {
-        multiInit.set(key, initialAppData[key]);
+        multiInit.set(key, JSON.stringify(initialAppData[key]));
       }
       await multiInit.exec();
-      console.log('Successfully initialized KV with initial data.');
+      console.log('Successfully initialized Redis with initial data.');
       
-      // Return the initial data structure.
       return res.status(200).json(initialAppData);
     }
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    console.error("CRITICAL: Error fetching data from KV. The database might be misconfigured.", error);
+    console.error("CRITICAL: Error fetching data from Redis. The database might be misconfigured.", error);
     res.status(500).json({ error: 'Failed to connect to the database.', details: errorMessage });
   }
 }
