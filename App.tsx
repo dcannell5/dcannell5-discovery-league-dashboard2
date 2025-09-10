@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, RefereeNote, UpcomingEvent, PlayerProfile, AllPlayerProfiles, AdminFeedback, PlayerFeedback, AiMessage, ProjectLogEntry, SaveStatus, SystemLog } from './types';
 import { SUPER_ADMIN_CODE, getRefereeCodeForCourt, getPlayerCode, getParentCode } from './utils/auth';
@@ -72,6 +69,7 @@ const SevereWarningModal: React.FC<{
 const App: React.FC = () => {
   const [appData, setAppData] = useState<AppData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
   const [userState, setUserState] = useState<UserState>({ role: 'NONE' });
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string>('');
@@ -128,22 +126,31 @@ const App: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
         setIsLoading(true);
+        setLoadingError(null);
         try {
             const response = await fetch('/api/getData');
             if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Failed to fetch data: ${response.statusText} - ${errorText}`);
+                let errorDetails = `Server responded with status ${response.status}.`;
+                try {
+                    const errorJson = await response.json();
+                    errorDetails = errorJson.details || errorJson.error || JSON.stringify(errorJson);
+                } catch (e) {
+                    const errorText = await response.text();
+                    if (errorText) errorDetails = errorText;
+                }
+                throw new Error(errorDetails);
             }
             const data: AppData = await response.json();
             setAppData(data);
-            setSystemLogs(data.systemLogs || []); // Initialize logs from loaded data
-            setSaveStatus('saved'); // Initial data is considered saved
+            setSystemLogs(data.systemLogs || []);
+            setSaveStatus('saved');
             addSystemLog({ type: 'Data Load', status: 'Success', message: 'Application data loaded successfully.' });
         } catch (error) {
             console.error("Could not load initial application data:", error);
             const errorMessage = error instanceof Error ? error.message : String(error);
+            setLoadingError(errorMessage);
             addSystemLog({ type: 'Data Load', status: 'Error', message: 'Failed to load application data from server.', details: errorMessage });
-            setAppData(null); // Set to null on error
+            setAppData(null);
             setSaveStatus('error');
         } finally {
             setIsLoading(false);
@@ -151,7 +158,7 @@ const App: React.FC = () => {
         }
     };
     fetchData();
-  }, []);
+  }, [addSystemLog]);
 
   // Save data to the backend whenever it changes, with debouncing
   useEffect(() => {
@@ -838,10 +845,19 @@ const App: React.FC = () => {
 
   if (!appData) {
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-900">
-             <div className="text-center">
+        <div className="flex items-center justify-center min-h-screen bg-gray-900 p-4">
+             <div className="text-center bg-gray-800/50 p-8 rounded-2xl shadow-2xl border border-red-500/50 max-w-2xl">
                  <h2 className="text-2xl text-red-400 font-bold">Failed to Load Application Data</h2>
-                 <p className="text-gray-400 mt-2">Could not retrieve league data from the server. Please try refreshing the page or contact an administrator.</p>
+                 <p className="text-gray-400 mt-2 mb-4">Could not retrieve league data from the server. Please try refreshing the page. If the problem persists, contact an administrator.</p>
+                 {loadingError && (
+                    <div className="text-left bg-gray-900/70 p-4 rounded-lg mt-4 border border-gray-700">
+                        <h3 className="font-semibold text-yellow-400 mb-2">Error Details:</h3>
+                        <pre className="text-sm text-gray-300 whitespace-pre-wrap font-mono">{loadingError}</pre>
+                        <p className="text-xs text-gray-500 mt-3">
+                            This error often indicates that the server's environment variables (e.g., database credentials) are not set correctly.
+                        </p>
+                    </div>
+                 )}
              </div>
         </div>
     );
