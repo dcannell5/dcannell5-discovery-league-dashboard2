@@ -1,4 +1,5 @@
-import { mget, multi } from '@vercel/kv';
+// FIX: Reverted to using the `kv` object from `@vercel/kv` to resolve module export errors.
+import { kv } from '@vercel/kv';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { AppData } from '../types';
 import { initialAppData } from '../data/initialData';
@@ -14,7 +15,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // Fetch all keys at once for efficiency.
     // FIX: Use the imported 'mget' function instead of kv.mget.
-    const values = await mget<Array<AppData[keyof AppData]>>(...APP_DATA_KEYS);
+    const values = await kv.mget<Array<AppData[keyof AppData]>>(...APP_DATA_KEYS);
     
     // Check if at least one key returned a non-null value, indicating data exists.
     const dataExists = values.some(v => v !== null);
@@ -36,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // If no data exists, this is a first-time run. Initialize the database.
       console.log('No data found in KV, initializing.');
       // FIX: Use the imported 'multi' function instead of kv.multi.
-      const multiInit = multi();
+      const multiInit = kv.multi();
       for (const key of APP_DATA_KEYS) {
         multiInit.set(key, initialAppData[key]);
       }

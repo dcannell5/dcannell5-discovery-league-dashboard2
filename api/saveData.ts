@@ -1,4 +1,5 @@
-import { multi as createMulti } from '@vercel/kv';
+// FIX: Reverted to using the `kv` object from `@vercel/kv` to resolve module export errors.
+import { kv } from '@vercel/kv';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { AppData } from '../types';
 
@@ -16,7 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     // Use a transaction to set all keys atomically, which is safer and more efficient.
     // FIX: Use the imported 'multi' function (aliased to createMulti) instead of kv.multi.
-    const multi = createMulti();
+    const multi = kv.multi();
 
     // Iterate over the top-level keys of the AppData object and set each one individually in the KV store.
     // This avoids hitting the single-value size limit of Vercel KV.
