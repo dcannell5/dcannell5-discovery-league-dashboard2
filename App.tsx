@@ -14,6 +14,7 @@ import AiHelperButton from './components/AiHelperButton';
 import { IconVolleyball } from './components/Icon';
 import BlogPage from './components/BlogPage';
 import { presetData } from './data/presetSchedule';
+import SaveStatusIndicator from './components/SaveStatusIndicator';
 
 
 const SevereWarningModal: React.FC<{
@@ -852,9 +853,6 @@ const App: React.FC = () => {
         onSaveProjectLog={handleSaveProjectLog}
         systemLogs={systemLogs}
         addSystemLog={addSystemLog}
-        saveStatus={saveStatus}
-        saveError={saveError}
-        onRetrySave={forceSave}
     />
   } else if (activeLeagueId === 'new') {
     pageContent = <SetupScreen 
@@ -949,6 +947,11 @@ const App: React.FC = () => {
                 onClose={() => setIsAiHelperOpen(false)}
                 conversation={aiConversation}
                 onSendQuery={handleAiQuery}
+            />
+            <SaveStatusIndicator
+                status={saveStatus}
+                errorMessage={saveError}
+                onRetry={forceSave}
             />
         </>
       )}

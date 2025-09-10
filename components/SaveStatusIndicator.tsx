@@ -1,6 +1,4 @@
 
-
-
 import React from 'react';
 import { IconCloud, IconCloudCheck, IconCloudOff, IconEdit, IconEye } from './Icon';
 import type { SaveStatus } from '../types';

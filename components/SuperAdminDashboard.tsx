@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import type { ProjectLogEntry, SaveStatus, SystemLog } from '../types';
-import { IconLayoutDashboard, IconUsersGroup, IconBriefcase, IconShieldCheck, IconShieldExclamation, IconRefresh, IconLogout, IconUserCheck, IconUsers, IconCloud, IconCloudCheck, IconCloudOff, IconEdit, IconClipboard, IconClipboardCheck, IconChevronDown } from './Icon';
+import type { ProjectLogEntry, SystemLog } from '../types';
+import { IconLayoutDashboard, IconUsersGroup, IconBriefcase, IconShieldCheck, IconShieldExclamation, IconRefresh, IconLogout, IconUserCheck, IconUsers, IconChevronDown, IconClipboard, IconClipboardCheck } from './Icon';
 import ProjectJournalPanel from './ProjectJournalPanel';
 import { logoUrl } from '../assets/logo';
 import HelpIcon from './HelpIcon';
@@ -12,9 +12,6 @@ interface SuperAdminDashboardProps {
   onSaveProjectLog: (post: Omit<ProjectLogEntry, 'id' | 'date'>) => void;
   systemLogs: SystemLog[];
   addSystemLog: (logData: Omit<SystemLog, 'id' | 'timestamp'>) => void;
-  saveStatus: SaveStatus;
-  saveError: string | null;
-  onRetrySave: () => void;
 }
 
 type SystemStatusState = 'OK' | 'ERROR' | 'CHECKING';
@@ -44,42 +41,6 @@ const StatusIndicator: React.FC<{ status: SystemStatusState, label: string, help
                     <HelpIcon text={helpText} />
                 </div>
                 <span className="text-xs text-gray-500">{status}</span>
-            </div>
-        </div>
-    );
-};
-
-const SaveStateIndicator: React.FC<{ status: SaveStatus; errorMessage: string | null; onRetry: () => void; }> = ({ status, errorMessage, onRetry }) => {
-    const statusConfig = {
-      unsaved: { icon: <IconEdit className="w-5 h-5" />, text: 'Unsaved changes', color: 'text-yellow-400' },
-      saving: { icon: <IconCloud className="w-5 h-5 animate-pulse" />, text: 'Saving to database...', color: 'text-blue-400' },
-      saved: { icon: <IconCloudCheck className="w-5 h-5" />, text: 'All changes saved', color: 'text-green-400' },
-      error: { icon: <IconCloudOff className="w-5 h-5" />, text: 'Error saving data', color: 'text-red-400' },
-    };
-
-    if (status === 'idle' || status === 'readonly') return null;
-
-    const config = statusConfig[status];
-    const displayMessage = status === 'saving' && errorMessage ? errorMessage : config.text;
-
-    return (
-        <div className="bg-gray-700/50 p-3 rounded-lg h-full flex flex-col justify-center">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                     <div className={`flex-shrink-0 ${config.color}`}>{config.icon}</div>
-                     <div>
-                        <div className={`font-bold ${config.color} flex items-center`}>
-                            Data Sync Status
-                            <HelpIcon text="Shows the real-time status of data saving to the central database. Changes are automatically saved after a short delay." />
-                        </div>
-                        <span className="text-xs text-gray-400">{displayMessage}</span>
-                     </div>
-                </div>
-                {status === 'error' && onRetry && (
-                    <button onClick={onRetry} className="text-xs font-bold bg-red-600 px-2.5 py-1 rounded-lg hover:bg-red-500 text-white transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400">
-                      Retry Save
-                    </button>
-                )}
             </div>
         </div>
     );
@@ -172,7 +133,7 @@ const NavCard: React.FC<{ icon: React.ReactNode, title: string, description: str
 };
 
 
-const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onLogout, onNavigateToLeagues, projectLogs, onSaveProjectLog, systemLogs, addSystemLog, saveStatus, saveError, onRetrySave }) => {
+const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onLogout, onNavigateToLeagues, projectLogs, onSaveProjectLog, systemLogs, addSystemLog }) => {
   const [systemStatus, setSystemStatus] = useState<SystemStatus>({ kvDatabase: 'CHECKING', blobStorage: 'CHECKING', aiService: 'CHECKING' });
 
   const getSuggestion = (service: keyof SystemStatus, details: string): string => {
@@ -279,7 +240,6 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onLogout, onN
                         label="AI Service"
                         helpText="Checks for the presence of the Gemini API key on the server. An error here means AI-powered features like the Coach's Playbook and AI Assistant will not work."
                     />
-                     <SaveStateIndicator status={saveStatus} errorMessage={saveError} onRetry={onRetrySave} />
                      <button 
                         onClick={checkHealth}
                         className="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold p-3 rounded-lg transition-colors flex items-center justify-center gap-2"
