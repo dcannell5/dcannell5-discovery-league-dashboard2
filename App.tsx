@@ -159,7 +159,7 @@ const App: React.FC = () => {
         console.error("Could not load initial application data:", initialErrorMessage);
 
         if (initialErrorMessage === "SERVER_CRASH") {
-            initialErrorMessage = "The application's data server is not responding correctly. This often indicates a server configuration issue.";
+            initialErrorMessage = "The application failed to start because the initial data load from `/api/getData` failed. This usually indicates a server configuration issue.";
             try {
                 addSystemLog({ type: 'Health Check', status: 'Info', message: 'Initial data load failed, running system health check for diagnostics.' });
                 const healthResponse = await fetch('/api/system-health');
@@ -167,43 +167,58 @@ const App: React.FC = () => {
                     const healthData = await healthResponse.json();
                     const healthIssues: string[] = [];
                     
+                    const serviceNameMap: Record<string, string> = {
+                        kvDatabase: 'Database Service (Vercel KV)',
+                        blobStorage: 'Image Storage (Vercel Blob)',
+                        aiService: 'AI Service (Gemini)'
+                    };
+
+                    const serviceFileMap: Record<string, string> = {
+                        kvDatabase: '/api/getData.ts, /api/saveData.ts, /api/resetData.ts',
+                        blobStorage: '/api/uploadImage.ts',
+                        aiService: '/api/aiHelper.ts, /api/generateCoachingTip.ts, /api/moderateImage.ts, /api/generateTeamOfTheDay.ts'
+                    };
+                    
                     const getSuggestion = (service: string, details: string): string => {
                       if (service === 'kvDatabase') {
-                          if (details.includes('authentication') || details.includes('Unauthorized')) return "Suggestion: Verify that `leaguestorage_KV_REST_API_URL` and `leaguestorage_KV_REST_API_TOKEN` are correctly set in your Vercel project's environment variables.";
+                          if (details.includes('authentication') || details.includes('Unauthorized')) return "This app uses a Vercel KV store named 'leaguestorage'. To fix this, go to your Vercel Project -> Settings -> Environment Variables and ensure these two variables, provided by the KV integration, are present: `leaguestorage_KV_REST_API_URL` and `leaguestorage_KV_REST_API_TOKEN`.";
                       }
                       if (service === 'blobStorage') {
-                          if (details.includes('configured')) return "Suggestion: Connect a Vercel Blob store via the Vercel dashboard and ensure `BLOB_READ_WRITE_TOKEN` is set.";
+                          if (details.includes('configured')) return "Connect a Vercel Blob store via the Vercel dashboard and ensure `BLOB_READ_WRITE_TOKEN` is set as an environment variable. This is required for image uploads.";
                       }
                       if (service === 'aiService') {
-                          return "Suggestion: Add the `API_KEY` environment variable for the Gemini AI service in your Vercel settings.";
+                          return "Add the `API_KEY` environment variable for the Gemini AI service in your Vercel project settings to enable AI features.";
                       }
-                      return "Suggestion: Check the service status on Vercel and review server logs for more details.";
+                      return "Check the service status on Vercel and review server logs for more details.";
                     };
                     
                     if (healthData.kvDatabase?.status !== 'OK') {
+                        const service = 'kvDatabase';
                         const details = healthData.kvDatabase.details;
-                        healthIssues.push(`- KV Database: FAILED\n  Reason: ${details}\n  ${getSuggestion('kvDatabase', details)}`);
+                        healthIssues.push(`- Service: ${serviceNameMap[service]}\n  File(s) Affected: ${serviceFileMap[service]}\n  Reason: ${details}\n  To Fix: ${getSuggestion(service, details)}`);
                     }
                     if (healthData.blobStorage?.status !== 'OK') {
+                        const service = 'blobStorage';
                         const details = healthData.blobStorage.details;
-                        healthIssues.push(`- Blob Storage: FAILED\n  Reason: ${details}\n  ${getSuggestion('blobStorage', details)}`);
+                        healthIssues.push(`- Service: ${serviceNameMap[service]}\n  File(s) Affected: ${serviceFileMap[service]}\n  Reason: ${details}\n  To Fix: ${getSuggestion(service, details)}`);
                     }
                     if (healthData.aiService?.status !== 'OK') {
+                        const service = 'aiService';
                         const details = healthData.aiService.details;
-                        healthIssues.push(`- AI Service: FAILED\n  Reason: ${details}\n  ${getSuggestion('aiService', details)}`);
+                        healthIssues.push(`- Service: ${serviceNameMap[service]}\n  File(s) Affected: ${serviceFileMap[service]}\n  Reason: ${details}\n  To Fix: ${getSuggestion(service, details)}`);
                     }
                     
                     if (healthIssues.length > 0) {
-                        initialErrorMessage = "A system health check revealed the following critical configuration errors on the server:\n\n" + healthIssues.join('\n\n');
+                        initialErrorMessage = "A system health check revealed the following critical configuration errors preventing the app from starting:\n\n" + healthIssues.join('\n\n');
                     } else {
-                        initialErrorMessage += " A health check was run but found no specific configuration errors. Please check the Vercel deployment logs for runtime errors in the `/api/getData` function."
+                        initialErrorMessage += "\n\nA health check was run but found no specific configuration errors. The issue might be a temporary network problem or a runtime error in the `/api/getData` server function. Please check the Vercel deployment logs for more details."
                     }
                 } else {
-                    initialErrorMessage += " Additionally, an attempt to run a system health check failed, which may indicate a wider server issue.";
+                    initialErrorMessage += "\n\nAdditionally, an attempt to run a system health check failed, which may indicate a wider server issue or a problem with the `/api/system-health` function itself.";
                 }
             } catch (healthError) {
                 console.error("Health check request failed:", healthError);
-                initialErrorMessage += " An attempt to run a diagnostic health check also failed.";
+                initialErrorMessage += "\n\nAn attempt to run a diagnostic health check also failed.";
             }
         }
         
