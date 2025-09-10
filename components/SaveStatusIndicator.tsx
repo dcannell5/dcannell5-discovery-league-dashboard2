@@ -4,7 +4,7 @@ import type { SaveStatus } from '../types';
 
 interface SaveStatusIndicatorProps {
   status: SaveStatus;
-  isReadOnly?: boolean;
+  isReadOnly: boolean;
   errorMessage?: string | null;
   onRetry?: () => void;
 }

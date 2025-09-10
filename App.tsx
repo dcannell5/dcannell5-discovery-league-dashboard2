@@ -85,14 +85,15 @@ const App: React.FC = () => {
   // Data persistence state
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [isReadOnlySession, setIsReadOnlySession] = useState(false);
-
+  
   // Navigation states
   const [adminView, setAdminView] = useState<'hub' | 'leagueSelector'>('hub');
   const [currentView, setCurrentView] = useState<'app' | 'blog'>('app');
   
   const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
   const MAX_LOGS = 50;
+  
+  const isReadOnlySession = useMemo(() => appData?.leagues[appData.activeLeagueId as string]?.isReadOnly, [appData?.activeLeagueId, appData?.leagues]);
 
   const addSystemLog = useCallback((logData: Omit<SystemLog, 'id' | 'timestamp'>) => {
     const newLog: SystemLog = {
@@ -385,7 +386,6 @@ const App: React.FC = () => {
         };
         
         setAppData(readOnlyData);
-        setIsReadOnlySession(true);
     }
   }, [appData]);
 
