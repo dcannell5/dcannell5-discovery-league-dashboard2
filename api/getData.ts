@@ -1,31 +1,9 @@
-import { kv } from '@vercel/kv';
+import { mget, multi } from '@vercel/kv';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { AppData } from '../types';
+import { initialAppData } from '../data/initialData';
 
-// The initial data structure acts as a schema and default values.
-const initialAppData: AppData = {
-  leagues: {},
-  dailyResults: {},
-  allDailyMatchups: {},
-  allDailyAttendance: {},
-  allPlayerProfiles: {},
-  allRefereeNotes: {},
-  allAdminFeedback: {},
-  allPlayerFeedback: {},
-  allPlayerPINs: {},
-  loginCounters: {},
-  projectLogs: [],
-  systemLogs: [],
-  activeLeagueId: null,
-  upcomingEvent: {
-    title: 'Discovery League Summer Camp',
-    description: 'Join us for our annual Summer Camp! Sessions are available from July 2nd to July 11th. Focus on skill development, teamwork, and fun in a positive learning environment.',
-    buttonText: 'Learn More & Register',
-    buttonUrl: 'https://canadianeliteacademy.corsizio.com/',
-  },
-};
-
-// Define the keys we expect to fetch from KV
+// Define the keys we expect to fetch from KV based on the initial data structure.
 const APP_DATA_KEYS: (keyof AppData)[] = Object.keys(initialAppData) as (keyof AppData)[];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -34,55 +12,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Fetch all keys at once
-    const values = await kv.mget<Array<AppData[keyof AppData]>>(...APP_DATA_KEYS);
+    // Fetch all keys at once for efficiency.
+    // FIX: Use the imported 'mget' function instead of kv.mget.
+    const values = await mget<Array<AppData[keyof AppData]>>(...APP_DATA_KEYS);
     
-    const fetchedData: Partial<AppData> = {};
-    let dataExists = false;
-    
-    APP_DATA_KEYS.forEach((key, index) => {
+    // Check if at least one key returned a non-null value, indicating data exists.
+    const dataExists = values.some(v => v !== null);
+
+    if (dataExists) {
+      // If data exists, construct the AppData object from the fetched values.
+      const fetchedData: Partial<AppData> = {};
+      APP_DATA_KEYS.forEach((key, index) => {
         if (values[index] !== null) {
             fetchedData[key] = values[index] as any;
-            dataExists = true;
         }
-    });
+      });
 
-    let finalAppData: AppData;
+      // Merge fetched data with defaults to ensure the data structure is always complete.
+      const finalAppData: AppData = { ...initialAppData, ...fetchedData };
+      return res.status(200).json(finalAppData);
 
-    // This handles migration from the old single-key format.
-    if (!dataExists) {
-        const oldData: AppData | null = await kv.get('discoveryLeagueData');
-        if (oldData) {
-            console.log("Migrating data from old single-key format.");
-            finalAppData = { ...initialAppData, ...oldData };
-            // Save data in the new format
-             const multi = kv.multi();
-             for (const key of APP_DATA_KEYS) {
-                 if (finalAppData[key] !== undefined) {
-                    multi.set(key, finalAppData[key]);
-                 }
-             }
-             await multi.exec();
-             // Optionally, delete the old key after successful migration
-             await kv.del('discoveryLeagueData');
-             console.log("Migration complete.");
-        } else {
-            console.log('No data found for any key in KV, initializing.');
-            finalAppData = initialAppData;
-            // Initialize the database with the split-key structure
-            const multiInit = kv.multi();
-            for (const key of APP_DATA_KEYS) {
-                multiInit.set(key, initialAppData[key]);
-            }
-            await multiInit.exec();
-            console.log('Successfully initialized KV with initial data in split-key format.');
-        }
     } else {
-      // Merge fetched data with defaults to ensure all keys are present
-      finalAppData = { ...initialAppData, ...fetchedData };
+      // If no data exists, this is a first-time run. Initialize the database.
+      console.log('No data found in KV, initializing.');
+      // FIX: Use the imported 'multi' function instead of kv.multi.
+      const multiInit = multi();
+      for (const key of APP_DATA_KEYS) {
+        multiInit.set(key, initialAppData[key]);
+      }
+      await multiInit.exec();
+      console.log('Successfully initialized KV with initial data.');
+      
+      // Return the initial data structure.
+      return res.status(200).json(initialAppData);
     }
-    
-    res.status(200).json(finalAppData);
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';

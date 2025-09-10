@@ -1,4 +1,4 @@
-import { kv } from '@vercel/kv';
+import { del } from '@vercel/kv';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Define the complete list of keys to be deleted, ensuring a full reset.
@@ -18,11 +18,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // This is a destructive operation.
     
     // Clean up the old single key format, in case it still exists from a previous version.
-    await kv.del('discoveryLeagueData');
+    // FIX: Use the imported 'del' function instead of kv.del.
+    await del('discoveryLeagueData');
 
     // Delete all the new individual keys to completely reset the application state.
     if (APP_DATA_KEYS_TO_DELETE.length > 0) {
-        await kv.del(...APP_DATA_KEYS_TO_DELETE);
+        // FIX: Use the imported 'del' function instead of kv.del.
+        await del(...APP_DATA_KEYS_TO_DELETE);
     }
 
     res.status(200).json({ success: true, message: 'Data reset successfully.' });

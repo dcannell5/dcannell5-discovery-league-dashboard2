@@ -1,4 +1,4 @@
-import { kv } from '@vercel/kv';
+import { set, get, del as delFromKv } from '@vercel/kv';
 import { put, head, del } from '@vercel/blob';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
@@ -16,10 +16,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const testKey = 'health_check_kv';
       const testValue = `health-check-${Date.now()}`;
-      await kv.set(testKey, testValue, { ex: 10 });
-      const readValue = await kv.get(testKey);
+      // FIX: Use the imported 'set' function instead of kv.set.
+      await set(testKey, testValue, { ex: 10 });
+      // FIX: Use the imported 'get' function instead of kv.get.
+      const readValue = await get(testKey);
       if (readValue !== testValue) throw new Error('Read/write validation failed.');
-      await kv.del(testKey);
+      // FIX: Use the imported 'del' function (aliased) instead of kv.del.
+      await delFromKv(testKey);
       return { status: 'OK', details: 'Successfully connected and performed read/write test.' };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
