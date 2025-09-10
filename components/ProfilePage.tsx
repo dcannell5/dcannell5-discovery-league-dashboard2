@@ -322,38 +322,76 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ player, profile, userState, o
     setUploadError('');
     setIsUploading(true);
     addSystemLog({ type: 'Image Upload', status: 'Info', message: `Starting upload for ${file.name} for player ${player.id}.` });
+    
     const reader = new FileReader();
     reader.readAsDataURL(file);
+
     reader.onload = async () => {
-        const fileAsDataURL = reader.result as string;
-        try {
-            const response = await fetch('/api/uploadImage', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ file: fileAsDataURL, fileName: file.name })
-            });
+      const fileAsDataURL = reader.result as string;
+      try {
+        const fileParts = fileAsDataURL.split(',');
+        if (fileParts.length !== 2) throw new Error('Invalid file format.');
+        
+        const mimeTypePart = fileParts[0];
+        const base64Data = fileParts[1];
+        const mimeTypeMatch = mimeTypePart.match(/:(.*?);/);
+        if (!mimeTypeMatch || !mimeTypeMatch[1]) throw new Error('Could not determine file type.');
+        
+        const mimeType = mimeTypeMatch[1];
 
-            if (!response.ok) {
-                const errorResult = await response.json();
-                throw new Error(errorResult.error || 'Upload failed');
-            }
+        // Step 1: Moderate Image
+        setUploadError('Checking image safety...');
+        addSystemLog({ type: 'Image Upload', status: 'Info', message: `Moderating image for player ${player.id}.` });
+        
+        const moderationResponse = await fetch('/api/moderateImage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ base64Image: base64Data, mimeType: mimeType })
+        });
 
-            const { url } = await response.json();
-            handleInputChange('imageUrl', url);
-            addSystemLog({ type: 'Image Upload', status: 'Success', message: `Image for player ${player.id} uploaded to ${url}.` });
-
-        } catch (err: any) {
-            setUploadError(err.message || 'Could not upload image.');
-            addSystemLog({ type: 'Image Upload', status: 'Error', message: `Image upload failed for player ${player.id}.`, details: err.message });
-        } finally {
-            setIsUploading(false);
+        if (!moderationResponse.ok) {
+            throw new Error('Image moderation service failed.');
         }
+
+        const moderationResult = await moderationResponse.text();
+
+        if (moderationResult !== 'SAFE') {
+            addSystemLog({ type: 'Image Upload', status: 'Error', message: `Image rejected by moderation for player ${player.id}.` });
+            throw new Error('Image was rejected for safety reasons. Please choose another.');
+        }
+        
+        // Step 2: Upload image if safe
+        addSystemLog({ type: 'Image Upload', status: 'Info', message: `Image passed moderation. Uploading for player ${player.id}...` });
+        setUploadError(''); // Clear moderation message
+
+        const uploadResponse = await fetch('/api/uploadImage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file: fileAsDataURL, fileName: file.name })
+        });
+
+        if (!uploadResponse.ok) {
+            const errorResult = await uploadResponse.json();
+            throw new Error(errorResult.error || 'Upload failed');
+        }
+
+        const { url } = await uploadResponse.json();
+        handleInputChange('imageUrl', url);
+        addSystemLog({ type: 'Image Upload', status: 'Success', message: `Image for player ${player.id} uploaded to ${url}.` });
+
+      } catch (err: any) {
+          setUploadError(err.message || 'Could not upload image.');
+          addSystemLog({ type: 'Image Upload', status: 'Error', message: `Image upload failed for player ${player.id}.`, details: err.message });
+      } finally {
+          setIsUploading(false);
+      }
     };
+
     reader.onerror = () => {
-        setUploadError('Failed to read file.');
-        setIsUploading(false);
-        addSystemLog({ type: 'Image Upload', status: 'Error', message: `Failed to read file on client for player ${player.id}.` });
-    }
+      setUploadError('Failed to read file.');
+      setIsUploading(false);
+      addSystemLog({ type: 'Image Upload', status: 'Error', message: `Failed to read file on client for player ${player.id}.` });
+    };
   };
   
   const handleSave = () => {

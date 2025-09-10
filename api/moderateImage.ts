@@ -9,7 +9,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
-        const { base64Image } = req.body;
+        const { base64Image, mimeType } = req.body;
 
         if (!base64Image) {
             return res.status(400).json({ error: 'Missing image data' });
@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const imagePart = {
             inlineData: {
-                mimeType: 'image/jpeg', // Assuming jpeg, client could specify this in future
+                mimeType: mimeType || 'image/jpeg', // Use provided mimeType, fallback to jpeg
                 data: base64Image,
             },
         };
