@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Player, PlayerProfile, UserState, RefereeNote, SystemLog, LeagueConfig, AllDailyResults, AllDailyMatchups, AllDailyAttendance } from '../types';
+import type { Player, PlayerProfile, UserState, RefereeNote, SystemLog, LeagueConfig, AllDailyResults, AllDailyMatchups, AllDailyAttendance, Team } from '../types';
 import { getPlayerCode, getParentCode } from '../utils/auth';
 import { IconUserCircle, IconEdit, IconMessage, IconLock, IconLightbulb, IconCalendar } from './Icon';
 import HelpIcon from './HelpIcon';
@@ -253,8 +253,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ player, profile, userState, o
                 const teamAIds = game.teamA.map(p => p.id);
                 const teamBIds = game.teamB.map(p => p.id);
 
-                let playerTeam = null;
-                let opponentTeam = null;
+                let playerTeam: Team | null = null;
+                let opponentTeam: Team | null = null;
                 let playerTeamKey: 'teamA' | 'teamB' | null = null;
 
                 if (teamAIds.includes(player.id)) {
