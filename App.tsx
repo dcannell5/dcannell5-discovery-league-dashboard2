@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, RefereeNote, UpcomingEvent, PlayerProfile, AllPlayerProfiles, AdminFeedback, PlayerFeedback, AiMessage, ProjectLogEntry, SaveStatus, SystemLog } from './types';
 import { SUPER_ADMIN_CODE, getRefereeCodeForCourt, getPlayerCode, getParentCode } from './utils/auth';
@@ -159,10 +160,13 @@ const App: React.FC = () => {
         console.error("Could not load initial application data:", initialErrorMessage);
 
         if (initialErrorMessage === "SERVER_CRASH") {
-            initialErrorMessage = "The application failed to start because the initial data load from `/api/getData` failed. This usually indicates a server configuration issue.";
+            let baseMessage = "The application failed to start because the initial data load from `/api/getData` failed. This usually indicates a server configuration issue.";
+            initialErrorMessage = baseMessage;
+            
             try {
                 addSystemLog({ type: 'Health Check', status: 'Info', message: 'Initial data load failed, running system health check for diagnostics.' });
                 const healthResponse = await fetch('/api/system-health');
+
                 if (healthResponse.ok) {
                     const healthData = await healthResponse.json();
                     const healthIssues: string[] = [];
@@ -211,14 +215,32 @@ const App: React.FC = () => {
                     if (healthIssues.length > 0) {
                         initialErrorMessage = "A system health check revealed the following critical configuration errors preventing the app from starting:\n\n" + healthIssues.join('\n\n');
                     } else {
-                        initialErrorMessage += "\n\nA health check was run but found no specific configuration errors. The issue might be a temporary network problem or a runtime error in the `/api/getData` server function. Please check the Vercel deployment logs for more details."
+                        initialErrorMessage = baseMessage + "\n\nA health check was run but found no specific configuration errors. The issue might be a temporary network problem or a runtime error in the `/api/getData` server function. Please check the Vercel deployment logs for more details."
                     }
                 } else {
-                    initialErrorMessage += "\n\nAdditionally, an attempt to run a system health check failed, which may indicate a wider server issue or a problem with the `/api/system-health` function itself.";
+                    // Health check returned non-OK status, throw to be caught below
+                    throw new Error(`Health check API responded with status ${healthResponse.status}`);
                 }
             } catch (healthError) {
                 console.error("Health check request failed:", healthError);
-                initialErrorMessage += "\n\nAn attempt to run a diagnostic health check also failed.";
+                initialErrorMessage = `### How to Fix: Critical Server Configuration Error
+
+The application's core services are offline because both the data endpoint (\`/api/getData\`) and the diagnostic endpoint (\`/api/system-health\`) failed. This is almost always caused by missing Vercel Environment Variables for the database connection.
+
+**Step 1: Check Vercel KV Integration**
+This app uses a Vercel KV store named \`leaguestorage\`. Ensure this is correctly linked to your project in the Vercel dashboard under the "Storage" tab.
+
+**Step 2: Verify Environment Variables**
+- In your Vercel Project, go to **Settings > Environment Variables**.
+- Verify that the following two variables exist. They are automatically created by the Vercel KV integration.
+
+\`leaguestorage_KV_REST_API_URL\`
+\`leaguestorage_KV_REST_API_TOKEN\`
+
+**Important:** The API code specifically looks for variables prefixed with \`leaguestorage_\`. Generic names like \`UPSTASH_REDIS_REST_URL\` will **not** work.
+
+**Step 3: Redeploy Your Project**
+After adding or verifying the variables, you **must create a new deployment** for the changes to apply. Go to the "Deployments" tab and redeploy the latest commit.`;
             }
         }
         
@@ -920,9 +942,9 @@ const App: React.FC = () => {
   if (!appData) {
     return (
         <div className="flex items-center justify-center min-h-screen bg-gray-900 p-4">
-             <div className="text-center bg-gray-800/50 p-8 rounded-2xl shadow-2xl border border-red-500/50 max-w-2xl">
+             <div className="text-center bg-gray-800/50 p-8 rounded-2xl shadow-2xl border border-red-500/50 max-w-3xl">
                  <h2 className="text-2xl text-red-400 font-bold">Failed to Load Application Data</h2>
-                 <p className="text-gray-400 mt-2 mb-4">Could not retrieve league data from the server. Please try refreshing the page. If the problem persists, contact an administrator.</p>
+                 <p className="text-gray-400 mt-2 mb-4">Could not retrieve league data from the server. Please try refreshing the page. If the problem persists, check the server logs or the details below.</p>
                  {loadingError && (
                     <div className="text-left bg-gray-900/70 p-4 rounded-lg mt-4 border border-gray-700">
                         <h3 className="font-semibold text-yellow-400 mb-2">Error Details:</h3>
