@@ -125,48 +125,96 @@ const App: React.FC = () => {
   // Load initial data from the backend
   useEffect(() => {
     const fetchData = async () => {
-        setIsLoading(true);
-        setLoadingError(null);
-        try {
-            const response = await fetch('/api/getData');
-            const contentType = response.headers.get('content-type');
+      setIsLoading(true);
+      setLoadingError(null);
+      try {
+        const response = await fetch('/api/getData');
+        const contentType = response.headers.get('content-type');
 
-            if (response.ok && contentType && contentType.includes('application/json')) {
-                const data: AppData = await response.json();
-                setAppData(data);
-                setSystemLogs(data.systemLogs || []);
-                setSaveStatus('saved');
-                addSystemLog({ type: 'Data Load', status: 'Success', message: 'Application data loaded successfully.' });
+        if (response.ok && contentType && contentType.includes('application/json')) {
+            const data: AppData = await response.json();
+            setAppData(data);
+            setSystemLogs(data.systemLogs || []);
+            setSaveStatus('saved');
+            addSystemLog({ type: 'Data Load', status: 'Success', message: 'Application data loaded successfully.' });
+        } else {
+            const responseText = await response.text();
+            let errorDetails = `Server responded with status ${response.status}.`;
+            
+            if (responseText.trim().toLowerCase().startsWith('<!doctype html')) {
+                 // Throw a specific error that the catch block can identify for a health check
+                 throw new Error("SERVER_CRASH"); 
             } else {
-                const responseText = await response.text();
-                let errorDetails = `Server responded with status ${response.status}.`;
-                
-                // If it's HTML, we know it's a server crash page.
-                if (responseText.trim().toLowerCase().startsWith('<!doctype html')) {
-                     errorDetails = "The server returned an HTML error page instead of data. This commonly happens when server environment variables (e.g., database credentials) are missing or incorrect, causing a crash. Please check the Vercel deployment logs for specific errors.";
-                } else {
-                    // It might be a JSON error that we can parse, or just plain text.
-                    try {
-                        const errorJson = JSON.parse(responseText);
-                        errorDetails = errorJson.details || errorJson.error || JSON.stringify(errorJson);
-                    } catch (e) {
-                       // Not JSON, use the raw text.
-                       if(responseText) errorDetails = responseText;
-                    }
+                try {
+                    const errorJson = JSON.parse(responseText);
+                    errorDetails = errorJson.details || errorJson.error || JSON.stringify(errorJson);
+                } catch (e) {
+                   if(responseText) errorDetails = responseText;
                 }
                 throw new Error(errorDetails);
             }
-        } catch (error) {
-            console.error("Could not load initial application data:", error);
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            setLoadingError(errorMessage);
-            addSystemLog({ type: 'Data Load', status: 'Error', message: 'Failed to load application data from server.', details: errorMessage });
-            setAppData(null);
-            setSaveStatus('error');
-        } finally {
-            setIsLoading(false);
-            isInitialized.current = true;
         }
+      } catch (error) {
+        let initialErrorMessage = error instanceof Error ? error.message : String(error);
+        console.error("Could not load initial application data:", initialErrorMessage);
+
+        if (initialErrorMessage === "SERVER_CRASH") {
+            initialErrorMessage = "The application's data server is not responding correctly. This often indicates a server configuration issue.";
+            try {
+                addSystemLog({ type: 'Health Check', status: 'Info', message: 'Initial data load failed, running system health check for diagnostics.' });
+                const healthResponse = await fetch('/api/system-health');
+                if (healthResponse.ok) {
+                    const healthData = await healthResponse.json();
+                    const healthIssues: string[] = [];
+                    
+                    const getSuggestion = (service: string, details: string): string => {
+                      if (service === 'kvDatabase') {
+                          if (details.includes('authentication') || details.includes('Unauthorized')) return "Suggestion: Verify that `leaguestorage_KV_REST_API_URL` and `leaguestorage_KV_REST_API_TOKEN` are correctly set in your Vercel project's environment variables.";
+                      }
+                      if (service === 'blobStorage') {
+                          if (details.includes('configured')) return "Suggestion: Connect a Vercel Blob store via the Vercel dashboard and ensure `BLOB_READ_WRITE_TOKEN` is set.";
+                      }
+                      if (service === 'aiService') {
+                          return "Suggestion: Add the `API_KEY` environment variable for the Gemini AI service in your Vercel settings.";
+                      }
+                      return "Suggestion: Check the service status on Vercel and review server logs for more details.";
+                    };
+                    
+                    if (healthData.kvDatabase?.status !== 'OK') {
+                        const details = healthData.kvDatabase.details;
+                        healthIssues.push(`- KV Database: FAILED\n  Reason: ${details}\n  ${getSuggestion('kvDatabase', details)}`);
+                    }
+                    if (healthData.blobStorage?.status !== 'OK') {
+                        const details = healthData.blobStorage.details;
+                        healthIssues.push(`- Blob Storage: FAILED\n  Reason: ${details}\n  ${getSuggestion('blobStorage', details)}`);
+                    }
+                    if (healthData.aiService?.status !== 'OK') {
+                        const details = healthData.aiService.details;
+                        healthIssues.push(`- AI Service: FAILED\n  Reason: ${details}\n  ${getSuggestion('aiService', details)}`);
+                    }
+                    
+                    if (healthIssues.length > 0) {
+                        initialErrorMessage = "A system health check revealed the following critical configuration errors on the server:\n\n" + healthIssues.join('\n\n');
+                    } else {
+                        initialErrorMessage += " A health check was run but found no specific configuration errors. Please check the Vercel deployment logs for runtime errors in the `/api/getData` function."
+                    }
+                } else {
+                    initialErrorMessage += " Additionally, an attempt to run a system health check failed, which may indicate a wider server issue.";
+                }
+            } catch (healthError) {
+                console.error("Health check request failed:", healthError);
+                initialErrorMessage += " An attempt to run a diagnostic health check also failed.";
+            }
+        }
+        
+        setLoadingError(initialErrorMessage);
+        addSystemLog({ type: 'Data Load', status: 'Error', message: 'Failed to load application data from server.', details: initialErrorMessage });
+        setAppData(null);
+        setSaveStatus('error');
+      } finally {
+        setIsLoading(false);
+        isInitialized.current = true;
+      }
     };
     fetchData();
   }, [addSystemLog]);
