@@ -3,7 +3,6 @@ import { createClient } from '@vercel/kv';
 import { put, head, del } from '@vercel/blob';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// Initialize the KV client with specific environment variables
 const kv = createClient({
   url: process.env.leaguestorage_KV_REST_API_URL!,
   token: process.env.leaguestorage_KV_REST_API_TOKEN!,

@@ -4,13 +4,11 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { AppData } from '../types';
 import { initialAppData } from '../data/initialData';
 
-// Initialize the KV client with specific environment variables
 const kv = createClient({
   url: process.env.leaguestorage_KV_REST_API_URL!,
   token: process.env.leaguestorage_KV_REST_API_TOKEN!,
 });
 
-// Define the keys we expect to fetch from KV based on the initial data structure.
 const APP_DATA_KEYS: (keyof AppData)[] = Object.keys(initialAppData) as (keyof AppData)[];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

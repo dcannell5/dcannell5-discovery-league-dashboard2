@@ -2,7 +2,6 @@
 import { createClient } from '@vercel/kv';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// Initialize the KV client with specific environment variables
 const kv = createClient({
   url: process.env.leaguestorage_KV_REST_API_URL!,
   token: process.env.leaguestorage_KV_REST_API_TOKEN!,
@@ -22,8 +21,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // This is a destructive operation.
-    
     // Clean up the old single key format, in case it still exists from a previous version.
     await kv.del('discoveryLeagueData');
 
