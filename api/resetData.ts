@@ -7,12 +7,7 @@ const redis = new Redis({
   token: process.env.leaguestorage_KV_REST_API_TOKEN!,
 });
 
-const APP_DATA_KEYS_TO_DELETE = [
-  'leagues', 'dailyResults', 'allDailyMatchups', 'allDailyAttendance', 
-  'allPlayerProfiles', 'allRefereeNotes', 'allAdminFeedback', 'allPlayerFeedback', 
-  'allPlayerPINs', 'loginCounters', 'projectLogs', 'systemLogs', 'teamOfTheDay',
-  'activeLeagueId', 'upcomingEvent'
-];
+const APP_DATA_KEY = 'discovery-league-data';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -20,10 +15,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    if (APP_DATA_KEYS_TO_DELETE.length > 0) {
-        await redis.del(...APP_DATA_KEYS_TO_DELETE);
-    }
-
+    await redis.del(APP_DATA_KEY);
     res.status(200).json({ success: true, message: 'Data reset successfully.' });
   } catch (error) {
     console.error("Error resetting data in Redis:", error);
