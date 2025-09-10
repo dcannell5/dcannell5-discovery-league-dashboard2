@@ -1,13 +1,11 @@
 
+
 import { Redis } from '@upstash/redis';
 import { put, head, del } from '@vercel/blob';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// Initialize the Redis client using specific environment variables for Vercel KV.
-const redis = new Redis({
-  url: process.env.leaguestorage_KV_REST_API_URL!,
-  token: process.env.leaguestorage_KV_REST_API_TOKEN!,
-});
+// Initialize the Redis client using the recommended `fromEnv` method for Vercel KV.
+const redis = Redis.fromEnv();
 
 type HealthStatus = {
   status: 'OK' | 'ERROR';
