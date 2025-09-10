@@ -954,7 +954,7 @@ const App: React.FC = () => {
             />
             <SaveStatusIndicator
                 status={saveStatus}
-                isReadOnly={!!isReadOnlySession}
+                isReadOnly={isReadOnlySession || false}
                 errorMessage={saveError}
                 onRetry={forceSave}
             />
