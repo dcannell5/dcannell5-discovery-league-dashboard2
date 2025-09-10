@@ -1,7 +1,13 @@
-// FIX: Reverted to using the `kv` object from `@vercel/kv` to resolve module export errors.
-import { kv } from '@vercel/kv';
+
+import { createClient } from '@vercel/kv';
 import { put, head, del } from '@vercel/blob';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+
+// Initialize the KV client with specific environment variables
+const kv = createClient({
+  url: process.env.leaguestorage_KV_REST_API_URL!,
+  token: process.env.leaguestorage_KV_REST_API_TOKEN!,
+});
 
 type HealthStatus = {
   status: 'OK' | 'ERROR';
@@ -17,12 +23,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const testKey = 'health_check_kv';
       const testValue = `health-check-${Date.now()}`;
-      // FIX: Use the imported 'set' function instead of kv.set.
       await kv.set(testKey, testValue, { ex: 10 });
-      // FIX: Use the imported 'get' function instead of kv.get.
       const readValue = await kv.get(testKey);
       if (readValue !== testValue) throw new Error('Read/write validation failed.');
-      // FIX: Use the imported 'del' function (aliased) instead of kv.del.
       await kv.del(testKey);
       return { status: 'OK', details: 'Successfully connected and performed read/write test.' };
     } catch (error) {
