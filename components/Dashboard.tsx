@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Player, AllDailyResults, GameResult, UserState, AllDailyMatchups, PlayerWithStats, AllDailyAttendance, LeagueConfig, CourtResults, CoachingTip, AdminFeedback, PlayerFeedback, AppData, LoginCounts } from '../types';
 import { generateCoachingTip } from '../services/geminiService';
@@ -18,7 +19,7 @@ import Announcements from './Announcements';
 import AdminPanel from './AdminPanel';
 import LinksAndShare from './LinksAndShare';
 import PlayerAttendancePanel from './PlayerAttendancePanel';
-import { IconTrophy, IconLightbulb, IconQuote, IconVideo, IconLock, IconMessage } from './Icon';
+import { IconTrophy, IconLightbulb, IconQuote, IconVideo, IconLock, IconMessage, IconSettings } from './Icon';
 import PlayerCard from './PlayerCard';
 import TeamOfTheDay from './TeamOfTheDay';
 
@@ -80,6 +81,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [printableContent, setPrintableContent] = useState<React.ReactNode | null>(null);
   const [isGeneratingTeam, setIsGeneratingTeam] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   const realCurrentLeagueDay = useMemo(() => getActiveDay(new Date(), leagueConfig), [leagueConfig]);
   const isDayLocked = !!leagueConfig.lockedDays?.[currentDay];
@@ -491,6 +493,36 @@ const Dashboard: React.FC<DashboardProps> = ({
   const showDiscoveryView = leagueConfig.leagueType === 'custom' || (leagueConfig.leagueType === 'standard' && currentDay === 1);
   const isPlayerOrParent = userState.role === 'PLAYER' || userState.role === 'PARENT';
 
+  if (userState.role === 'SUPER_ADMIN' && showAdminPanel) {
+    return (
+        <div className="min-h-screen bg-gray-900 text-gray-100">
+            <main className="container mx-auto p-4 md:p-8">
+                <header className="flex justify-between items-center mb-8">
+                    <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-yellow-500">
+                        Admin Panel
+                    </h1>
+                    <button
+                        onClick={() => setShowAdminPanel(false)}
+                        className="text-sm font-semibold text-gray-300 hover:text-yellow-400 transition-colors"
+                    >
+                        &larr; Back to Dashboard
+                    </button>
+                </header>
+                <AdminPanel
+                    appData={appData}
+                    leagueConfig={leagueConfig}
+                    onScheduleSave={onScheduleSave}
+                    allPlayerPINs={allPlayerPINs}
+                    onResetPlayerPIN={onResetPlayerPIN}
+                    allAdminFeedback={allAdminFeedback}
+                    allPlayerFeedback={allPlayerFeedback}
+                    loginCounters={loginCounters}
+                />
+            </main>
+        </div>
+    );
+  }
+
   return (
     <>
       <div className="min-h-screen bg-gray-900 text-gray-100">
@@ -511,6 +543,19 @@ const Dashboard: React.FC<DashboardProps> = ({
               onSave={onAnnouncementsSave}
           />
 
+          {userState.role === 'SUPER_ADMIN' && (
+            <div className="my-8 p-6 bg-gray-800/50 rounded-2xl shadow-xl border border-gray-700 text-center">
+                <button
+                    onClick={() => setShowAdminPanel(true)}
+                    className="px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-500 transition-all duration-300 flex items-center justify-center gap-2 mx-auto"
+                >
+                    <IconSettings className="w-5 h-5" />
+                    Open League Admin Panel
+                </button>
+                <p className="text-xs text-gray-500 mt-3">Manage schedules, access codes, and view feedback.</p>
+            </div>
+           )}
+
           {userState.role === 'NONE' && <LinksAndShare leagueTitle={leagueConfig.title} />}
           {isPlayerOrParent && (
             <PlayerAttendancePanel 
@@ -521,21 +566,6 @@ const Dashboard: React.FC<DashboardProps> = ({
               realCurrentLeagueDay={realCurrentLeagueDay}
             />
           )}
-          {userState.role === 'SUPER_ADMIN' && (
-            <>
-              <AdminPanel 
-                  appData={appData}
-                  leagueConfig={leagueConfig} 
-                  onScheduleSave={onScheduleSave} 
-                  allPlayerPINs={allPlayerPINs}
-                  onResetPlayerPIN={onResetPlayerPIN}
-                  allAdminFeedback={allAdminFeedback}
-                  allPlayerFeedback={allPlayerFeedback}
-                  loginCounters={loginCounters}
-              />
-            </>
-          )}
-
 
           <div className="my-8 p-6 bg-gray-800/50 rounded-2xl shadow-2xl border border-gray-700">
               <h2 className="text-2xl font-bold text-yellow-400 mb-4 flex items-center justify-center">
