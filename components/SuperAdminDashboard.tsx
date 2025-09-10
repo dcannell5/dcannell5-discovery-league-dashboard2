@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import type { ProjectLogEntry, SystemLog } from '../types';
-import { IconLayoutDashboard, IconUsersGroup, IconBriefcase, IconShieldCheck, IconShieldExclamation, IconRefresh, IconLogout, IconUserCheck, IconUsers, IconChevronDown, IconClipboard, IconClipboardCheck } from './Icon';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import type { AppData, ProjectLogEntry, SystemLog } from '../types';
+import { IconLayoutDashboard, IconUsersGroup, IconBriefcase, IconShieldCheck, IconShieldExclamation, IconRefresh, IconLogout, IconUserCheck, IconUsers, IconChevronDown, IconClipboard, IconClipboardCheck, IconLogin } from './Icon';
 import ProjectJournalPanel from './ProjectJournalPanel';
 import { logoUrl } from '../assets/logo';
 import HelpIcon from './HelpIcon';
 
 interface SuperAdminDashboardProps {
+  appData: AppData;
   onLogout: () => void;
   onNavigateToLeagues: () => void;
   projectLogs: ProjectLogEntry[];
@@ -20,6 +21,18 @@ type SystemStatus = {
     blobStorage: SystemStatusState;
     aiService: SystemStatusState;
 };
+
+const StatCard: React.FC<{ icon: React.ReactNode, value: number | string, label: string }> = ({ icon, value, label }) => (
+    <div className="bg-gray-700/50 p-4 rounded-lg flex items-center gap-4">
+        <div className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center bg-gray-900/50 text-yellow-400">
+            {icon}
+        </div>
+        <div>
+            <div className="text-3xl font-bold text-white">{value}</div>
+            <div className="text-sm text-gray-400">{label}</div>
+        </div>
+    </div>
+);
 
 const StatusIndicator: React.FC<{ status: SystemStatusState, label: string, helpText: string }> = ({ status, label, helpText }) => {
     const isOk = status === 'OK';
@@ -133,8 +146,31 @@ const NavCard: React.FC<{ icon: React.ReactNode, title: string, description: str
 };
 
 
-const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onLogout, onNavigateToLeagues, projectLogs, onSaveProjectLog, systemLogs, addSystemLog }) => {
+const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ appData, onLogout, onNavigateToLeagues, projectLogs, onSaveProjectLog, systemLogs, addSystemLog }) => {
   const [systemStatus, setSystemStatus] = useState<SystemStatus>({ kvDatabase: 'CHECKING', blobStorage: 'CHECKING', aiService: 'CHECKING' });
+
+  const platformStats = useMemo(() => {
+    if (!appData) return { totalLeagues: 0, totalPlayers: 0, totalLogins: 0 };
+    
+    const totalLeagues = Object.keys(appData.leagues || {}).length;
+
+    const totalPlayers = Object.values(appData.leagues || {}).reduce(
+      (sum, league) => sum + league.players.length,
+      0
+    );
+
+    const totalLogins = Object.values(appData.loginCounters || {}).reduce(
+      (leagueSum, leagueCounters) =>
+        leagueSum +
+        Object.values(leagueCounters).reduce(
+          (playerSum, counts) => playerSum + (counts.playerLogins || 0) + (counts.parentLogins || 0),
+          0
+        ),
+      0
+    );
+    
+    return { totalLeagues, totalPlayers, totalLogins };
+  }, [appData]);
 
   const getSuggestion = (service: keyof SystemStatus, details: string): string => {
       const genericSuggestion = "This may be a temporary issue. Try re-running the check in a moment. If the problem persists, check your project's Vercel dashboard and the Vercel status page.";
@@ -217,6 +253,17 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onLogout, onN
             </h1>
             <p className="text-gray-400">Central control panel for the Canadian Elite Academy.</p>
         </header>
+
+        <div className="mb-8 p-6 bg-gray-800/50 rounded-2xl shadow-2xl border border-gray-700">
+            <h3 className="text-xl font-bold text-white mb-4 text-center">
+                Platform Activity At-a-Glance
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <StatCard icon={<IconLayoutDashboard className="w-6 h-6"/>} value={platformStats.totalLeagues} label="Active Leagues" />
+                <StatCard icon={<IconUsers className="w-6 h-6"/>} value={platformStats.totalPlayers} label="Registered Players" />
+                <StatCard icon={<IconLogin className="w-6 h-6"/>} value={platformStats.totalLogins} label="Total Logins" />
+            </div>
+        </div>
 
         <div className="mb-8 p-6 bg-gray-800/50 rounded-2xl shadow-2xl border border-gray-700">
             <h3 className="text-xl font-bold text-white mb-4 text-center flex items-center justify-center">
