@@ -3,7 +3,7 @@ import { Redis } from '@upstash/redis';
 import { put, head, del } from '@vercel/blob';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// Reads Upstash Redis credentials from environment variables
+// Reads Upstash Redis credentials from environment variables (UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN)
 const redis = Redis.fromEnv();
 
 type HealthStatus = {
@@ -27,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return { status: 'OK', details: 'Successfully connected and performed read/write test.' };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error("Health Check: Upstash Redis connection failed.", errorMessage);
+      console.error("Health Check: Vercel KV connection failed.", errorMessage);
       return { status: 'ERROR', details: errorMessage };
     }
   };
