@@ -20,7 +20,7 @@ export const useLeagueStats = (
   allMatchups: AllDailyMatchups,
   allAttendance: AllDailyAttendance,
   upToDay: number
-) => {
+): { sortedPlayers: PlayerWithStats[]; playerStatsById: Record<number, PlayerWithStats> } => {
   return useMemo(() => {
     const stats = initializePlayerStats(leagueConfig.players);
 
