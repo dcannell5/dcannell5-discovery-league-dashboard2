@@ -1,13 +1,10 @@
-
-
-
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Player, AllDailyResults, GameResult, UserState, AllDailyMatchups, PlayerWithStats, AllDailyAttendance, LeagueConfig, CourtResults, CoachingTip, AdminFeedback, PlayerFeedback, AppData, LoginCounts } from '../types';
 import { generateCoachingTip } from '../services/geminiService';
 import { generateDailyMatchups, getAllCourtNames } from '../utils/leagueLogic';
 import { sortPlayersWithTieBreaking } from '../utils/rankingLogic';
 import { getActiveDay } from '../utils/auth';
+import { useLeagueStats } from '../utils/hooks';
 import { initializePlayerStats, processDayResults } from '../utils/statsLogic';
 import Header from './Header';
 import Leaderboard from './Leaderboard';
@@ -91,43 +88,31 @@ const Dashboard: React.FC<DashboardProps> = ({
     setCurrentDay(realCurrentLeagueDay);
   }, [realCurrentLeagueDay]);
 
+  // -- REFACTORED STATS CALCULATION --
+  // Calculate stats for generating matchups (up to day before current)
+  const { sortedPlayers: playersForGenerator } = useLeagueStats(
+    leagueConfig,
+    gameResults,
+    allMatchups,
+    allAttendance,
+    currentDay - 1
+  );
+
+  // Calculate stats for display (up to current day)
+  const { sortedPlayers: sortedDisplayPlayers } = useLeagueStats(
+    leagueConfig,
+    gameResults,
+    allMatchups,
+    allAttendance,
+    currentDay
+  );
+
   // Effect to generate matchups for the current day if they don't exist.
   useEffect(() => {
     if ((allMatchups[currentDay] && Object.keys(allMatchups[currentDay]).length > 0) || leagueConfig.players.length === 0) {
       return; // Matchups already exist or no players
     }
-
-    // This logic calculates player ranks *before* the current day to generate matchups
-    const playerStats = initializePlayerStats(leagueConfig.players);
-    const startDay = leagueConfig.seededStats ? 4 : 1;
-
-    // Apply seeded stats as a baseline if they exist
-    if (leagueConfig.seededStats) {
-        Object.entries(leagueConfig.seededStats).forEach(([playerIdStr, seeded]) => {
-            const playerId = parseInt(playerIdStr);
-            if (playerStats[playerId] && seeded) {
-                Object.assign(playerStats[playerId], seeded);
-                playerStats[playerId].dailyPoints = {}; 
-            }
-        });
-    }
-
-    // Calculate stats for days AFTER the seed and BEFORE the current day
-    for (let day = startDay; day < currentDay; day++) {
-        processDayResults(playerStats, day, gameResults[day], allMatchups[day], allAttendance[day]);
-    }
-
-    // Sum total points from new daily points and seeded points
-    Object.values(playerStats).forEach(p => {
-        const newDailyTotal = Object.keys(p.dailyPoints).reduce((sum, dayKey) => sum + p.dailyPoints[Number(dayKey)], 0);
-        p.leaguePoints = (p.leaguePoints || 0) + newDailyTotal; 
-        p.pointDifferential = (p.pointsFor || 0) - (p.pointsAgainst || 0);
-    });
-
-    const playersForGenerator = (leagueConfig.leagueType === 'standard' && currentDay === 1)
-        ? Object.values(playerStats)
-        : sortPlayersWithTieBreaking(Object.values(playerStats));
-
+    
     const newDayMatchups = generateDailyMatchups(currentDay, playersForGenerator, leagueConfig);
 
     if (Object.keys(newDayMatchups).length > 0) {
@@ -136,51 +121,10 @@ const Dashboard: React.FC<DashboardProps> = ({
         [currentDay]: newDayMatchups,
       }));
     }
-  }, [currentDay, allMatchups, gameResults, allAttendance, leagueConfig, setAllMatchups]);
+  }, [currentDay, allMatchups, leagueConfig, setAllMatchups, playersForGenerator]);
   
-  const memoizedDisplayData = useMemo(() => {
-    const stats = initializePlayerStats(leagueConfig.players);
-
-    // If seeded stats exist, they are the source of truth for the end of Day 3.
-    // For Day 1 & 2, calculate from scratch to show progression. For Day 3, show the seed. For Day 4+, build on the seed.
-    if (leagueConfig.seededStats && currentDay >= 3) {
-      // For Day 3 and beyond, start with the authoritative seeded stats.
-      Object.entries(leagueConfig.seededStats).forEach(([playerIdStr, seeded]) => {
-          const playerId = parseInt(playerIdStr);
-          if (stats[playerId] && seeded) {
-              Object.assign(stats[playerId], seeded);
-              stats[playerId].dailyPoints = {}; // Reset daily points from seed as they are baked in
-          }
-      });
-      
-      const startDay = 4; // Start processing new results from Day 4 onwards
-      for (let day = startDay; day <= currentDay; day++) {
-          processDayResults(stats, day, gameResults[day], allMatchups[day], allAttendance[day]);
-      }
-
-      // Sum up points from days *after* the seed.
-      Object.values(stats).forEach(p => {
-          const newDailyTotal = Object.values(p.dailyPoints).reduce((sum, points) => sum + points, 0);
-          p.leaguePoints = (p.leaguePoints || 0) + newDailyTotal;
-          p.pointDifferential = (p.pointsFor || 0) - (p.pointsAgainst || 0);
-      });
-
-    } else {
-      // For Day 1, Day 2, or any un-seeded league, calculate from scratch.
-      for (let day = 1; day <= currentDay; day++) {
-        processDayResults(stats, day, gameResults[day], allMatchups[day], allAttendance[day]);
-      }
-      
-      // Sum up all calculated daily points.
-      Object.values(stats).forEach(p => {
-        p.leaguePoints = Object.values(p.dailyPoints).reduce((sum, points) => sum + points, 0);
-        p.pointDifferential = p.pointsFor - p.pointsAgainst;
-      });
-    }
-    
-    const displayStats = Object.values(stats);
-    const sortedDisplayPlayers = sortPlayersWithTieBreaking(displayStats);
-
+  // Memoize the calculation of court groups based on the final display stats
+  const { dailyCourtGroups, courtKeys } = useMemo(() => {
     const courtKeys = getAllCourtNames(leagueConfig);
     const dailyCourtGroups: Record<string, PlayerWithStats[]> = {};
     const { playersPerTeam, leagueType } = leagueConfig;
@@ -220,14 +164,11 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
 
     return { 
-        sortedDisplayPlayers, 
         dailyCourtGroups,
         courtKeys
     };
-  }, [gameResults, currentDay, allMatchups, allAttendance, leagueConfig]);
+  }, [sortedDisplayPlayers, currentDay, allMatchups, leagueConfig]);
   
-  const { sortedDisplayPlayers, dailyCourtGroups, courtKeys } = memoizedDisplayData;
-
   useEffect(() => {
     setCoachingTip(null);
     setCoachingTipError('');

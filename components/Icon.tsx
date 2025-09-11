@@ -284,17 +284,6 @@ export const IconChevronDown: React.FC<IconProps> = ({ className }) => (
     </svg>
 );
 
-export const IconScale: React.FC<IconProps> = ({ className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M16 18.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
-    <path d="M8 18.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
-    <path d="M2 3l10 5L22 3"/>
-    <path d="M12 8v12"/>
-    <path d="M16 13.5V8"/>
-    <path d="M8 13.5V8"/>
-  </svg>
-);
-
 export const IconLightbulb: React.FC<IconProps> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M9 18h6v2a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-2z"/>
@@ -308,14 +297,6 @@ export const IconQuote: React.FC<IconProps> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.75-2-2-2H4c-1.25 0-2 .75-2 2v6c0 7 4 8 8 8Z"/>
     <path d="M14 21c3 0 7-1 7-8V5c0-1.25-.75-2-2-2h-4c-1.25 0-2 .75-2 2v6c0 7 4 8 8 8Z"/>
-  </svg>
-);
-
-export const IconAcademicCap: React.FC<IconProps> = ({ className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M21.42 10.72l-9.19-4.2a2 2 0 0 0-1.46 0l-9.19 4.2a2 2 0 0 0 0 3.56l9.19 4.2a2 2 0 0 0 1.46 0l9.19-4.2a2 2 0 0 0 0-3.56z"/>
-    <path d="M4 12v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/>
-    <path d="M22 10l-10 5-10-5"/>
   </svg>
 );
 
