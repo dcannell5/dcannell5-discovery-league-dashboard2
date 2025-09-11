@@ -2,6 +2,8 @@
 
 
 
+
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, RefereeNote, UpcomingEvent, PlayerProfile, AllPlayerProfiles, AdminFeedback, PlayerFeedback, AiMessage, ProjectLogEntry, SaveStatus, SystemLog } from './types';
 import { SUPER_ADMIN_CODE, getRefereeCodeForCourt, getPlayerCode, getParentCode } from './utils/auth';
@@ -188,10 +190,10 @@ const App: React.FC = () => {
                     const getSuggestion = (service: string, details: string): string => {
                       if (service === 'kvDatabase') {
                           if (details.includes('Missing required environment variable')) {
-                              return "This app requires a Vercel KV store named 'leaguestorage'. Go to your Vercel Project -> Storage, create the KV store, and link it to your project. Then, go to Settings -> Environment Variables and ensure these two variables, provided by the KV integration, are present: `leaguestorage_KV_REST_API_URL` and `leaguestorage_KV_REST_API_TOKEN`. Finally, redeploy the project.";
+                              return "This app requires a Vercel KV store named 'leaguestorage'. Go to your Vercel Project -> Storage, create the KV store, and link it. Then, go to Settings -> Environment Variables and ensure these two variables exist: `leaguestorage_KV_REST_API_URL` and `leaguestorage_KV_REST_API_TOKEN`. Important: The code specifically looks for variables prefixed with `leaguestorage_`. Generic names like `UPSTASH_REDIS_REST_URL` will not work. Finally, redeploy the project.";
                           }
                           if (details.includes('authentication') || details.includes('Unauthorized')) {
-                               return "This app uses a Vercel KV store named 'leaguestorage'. To fix this, go to your Vercel Project -> Settings -> Environment Variables and ensure these two variables, provided by the KV integration, are present: `leaguestorage_KV_REST_API_URL` and `leaguestorage_KV_REST_API_TOKEN`.";
+                               return "Authentication with Vercel KV failed. Please go to your Vercel Project -> Settings -> Environment Variables and ensure the `leaguestorage_KV_REST_API_URL` and `leaguestorage_KV_REST_API_TOKEN` variables provided by the KV integration are correct.";
                           }
                       }
                       if (service === 'blobStorage') {
@@ -230,21 +232,24 @@ const App: React.FC = () => {
                 }
             } catch (healthError) {
                 console.error("Health check request failed:", healthError);
-                initialErrorMessage = `### Critical Server Configuration Error
+                initialErrorMessage = `### How to Fix: Critical Server Configuration Error
 
-The application cannot connect to its database. This is almost always caused by a misconfiguration of the Vercel KV integration.
+The application's core services are offline because both the data endpoint (\`/api/getData\`) and the diagnostic endpoint (\`/api/system-health\`) failed. This is almost always caused by missing Vercel Environment Variables for the database connection.
 
-**Please follow these steps to fix the issue:**
+**Step 1: Check Vercel KV Integration**
+This app uses a Vercel KV store named \`leaguestorage\`. Ensure this is correctly linked to your project in the Vercel dashboard under the "Storage" tab.
 
-1.  **Go to your Vercel Project Dashboard.**
-2.  Navigate to the **Storage** tab.
-3.  Ensure you have a **KV (Redis)** store named \`leaguestorage\` connected to your project.
-4.  If it is connected, go to **Settings > Environment Variables**.
-5.  Confirm that Vercel has automatically created variables named \`leaguestorage_KV_REST_API_URL\` and \`leaguestorage_KV_REST_API_TOKEN\`.
+**Step 2: Verify Environment Variables**
+- In your Vercel Project, go to **Settings > Environment Variables**.
+- Verify that the following two variables exist. They are automatically created by the Vercel KV integration.
 
-**Important:** After connecting the store or verifying the variables, you **must create a new deployment** for the changes to take effect.
+\`leaguestorage_KV_REST_API_URL\`
+\`leaguestorage_KV_REST_API_TOKEN\`
 
-The application code is designed to automatically use these variables. If they are missing or the KV store is not linked, all backend services will fail.`;
+**Important:** The API code specifically looks for variables prefixed with \`leaguestorage_\`. Generic names like \`UPSTASH_REDIS_REST_URL\` will **not** work.
+
+**Step 3: Redeploy Your Project**
+After adding or verifying the variables, you **must create a new deployment** for the changes to apply. Go to the "Deployments" tab and redeploy the latest commit.`;
             }
         }
         

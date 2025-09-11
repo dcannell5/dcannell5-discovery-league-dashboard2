@@ -20,7 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!url || !token) {
         const missingVars = [!url && 'leaguestorage_KV_REST_API_URL', !token && 'leaguestorage_KV_REST_API_TOKEN'].filter(Boolean).join(' and ');
-        const details = `Missing required environment variable(s): ${missingVars}. This usually happens when the Vercel KV integration is not set up correctly. Ensure a KV store named 'leaguestorage' is linked to this project in your Vercel dashboard.`;
+        const details = `Missing required environment variable(s): ${missingVars}. This usually happens when the Vercel KV integration is not set up correctly. Ensure a KV store named 'leaguestorage' is linked to this project in your Vercel dashboard. Important: The application specifically requires these prefixed variables. Generic names like 'KV_REST_API_URL' will not work.`;
         console.error("Health Check: Vercel KV configuration error.", details);
         return { status: 'ERROR', details };
     }

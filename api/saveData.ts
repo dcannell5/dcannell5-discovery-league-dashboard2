@@ -4,14 +4,6 @@ import { Redis } from '@upstash/redis';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { AppData } from '../types';
 
-// Vercel KV is configured with a specific store name, "leaguestorage",
-// creating prefixed environment variables.
-const redis = new Redis({
-  url: process.env.leaguestorage_KV_REST_API_URL!,
-  token: process.env.leaguestorage_KV_REST_API_TOKEN!,
-});
-
-
 const APP_DATA_KEY = 'discovery-league-data';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -20,6 +12,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    // Vercel KV is configured with a specific store name, "leaguestorage",
+    // creating prefixed environment variables.
+    const redis = new Redis({
+      url: process.env.leaguestorage_KV_REST_API_URL!,
+      token: process.env.leaguestorage_KV_REST_API_TOKEN!,
+    });
+    
     const appData = req.body as AppData;
 
     if (!appData || typeof appData !== 'object') {
