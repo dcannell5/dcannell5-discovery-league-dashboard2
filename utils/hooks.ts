@@ -21,7 +21,7 @@ export const useLeagueStats = (
   allAttendance: AllDailyAttendance,
   upToDay: number
 ): { sortedPlayers: PlayerWithStats[]; playerStatsById: Record<number, PlayerWithStats> } => {
-  return useMemo(() => {
+  return useMemo<{ sortedPlayers: PlayerWithStats[]; playerStatsById: Record<number, PlayerWithStats> }>(() => {
     const stats = initializePlayerStats(leagueConfig.players);
 
     // Handle seeded stats for Day 3 and beyond
