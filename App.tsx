@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, RefereeNote, UpcomingEvent, PlayerProfile, AllPlayerProfiles, AdminFeedback, PlayerFeedback, AiMessage, ProjectLogEntry, SaveStatus, SystemLog } from './types';
 import { SUPER_ADMIN_CODE, getRefereeCodeForCourt, getPlayerCode, getParentCode } from './utils/auth';
@@ -682,7 +683,10 @@ The application code is designed to automatically use these variables. If they a
 
           return {
               ...prev,
-              [dataKey]: { ...(prev[dataKey] as object), [activeLeagueId]: newValue }
+// FIX: The type of prev[dataKey] is a broad union that can include non-object types (like string or null),
+// which causes a TypeScript error with object spread syntax. This check ensures we only
+// attempt to spread an actual object, providing a default empty object if the slice doesn't exist or isn't an object.
+              [dataKey]: { ...((prev[dataKey] && typeof prev[dataKey] === 'object') ? prev[dataKey] : {}), [activeLeagueId]: newValue }
           };
       });
   }, [activeLeagueId, updateAppData]);
