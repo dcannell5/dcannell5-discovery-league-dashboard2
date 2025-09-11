@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { AdminFeedback, PlayerFeedback, LeagueConfig, AppData, LoginCounts } from '../types';
 import { getPlayerCode, getParentCode, getRefereeCodeForCourt } from '../utils/auth';
 import { getAllCourtNames } from '../utils/leagueLogic';
 import HelpIcon from './HelpIcon';
-import { IconLightbulb, IconRefresh, IconDownload, IconUsers, IconClipboard, IconClipboardCheck } from './Icon';
+import { IconLightbulb, IconRefresh, IconDownload, IconUsers, IconClipboard, IconClipboardCheck, IconSearch } from './Icon';
 
 interface AdminPanelProps {
   appData: AppData;
@@ -50,6 +50,17 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ appData, leagueConfig, onSchedu
   const today = new Date();
   const courtNames = getAllCourtNames(leagueConfig);
   const [schedules, setSchedules] = useState(leagueConfig.daySchedules || {});
+  const [playerSearch, setPlayerSearch] = useState('');
+
+  const filteredPlayers = useMemo(() => {
+    const sorted = [...leagueConfig.players].sort((a, b) => a.name.localeCompare(b.name));
+    if (!playerSearch.trim()) {
+      return sorted;
+    }
+    return sorted.filter(player =>
+      player.name.toLowerCase().includes(playerSearch.toLowerCase().trim())
+    );
+  }, [leagueConfig.players, playerSearch]);
   
   useEffect(() => {
     setSchedules(leagueConfig.daySchedules || {});
@@ -175,24 +186,38 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ appData, leagueConfig, onSchedu
               Player Access Management
               <HelpIcon text="Manage permanent access codes. Click the icon to copy. Use the refresh icon to reset a player's custom PIN to their default code."/>
             </h3>
+             <div className="relative mb-4">
+              <input
+                type="text"
+                placeholder="Search players..."
+                value={playerSearch}
+                onChange={(e) => setPlayerSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-yellow-400"
+              />
+              <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[400px] lg:max-h-[500px] overflow-y-auto pr-2">
-              {leagueConfig.players.sort((a,b) => a.name.localeCompare(b.name)).map(player => (
-                <div key={player.id} className="bg-gray-700/50 p-3 rounded-lg space-y-2">
-                  <h4 className="font-bold text-white text-center border-b border-gray-600 pb-2">{player.name}</h4>
-                  <CodeRow label="Player Code" code={getPlayerCode(player)} />
-                  <CodeRow label="Parent Code" code={getParentCode(player)} />
-                  {allPlayerPINs[player.id] && (
-                    <div className="border-t border-dashed border-gray-600 pt-2 mt-2">
-                      <CodeRow 
-                        label="Custom PIN" 
-                        code={allPlayerPINs[player.id]}
-                        isPIN={true}
-                        onReset={() => handleResetPIN(player.id, player.name)}
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
+              {filteredPlayers.length > 0 ? (
+                filteredPlayers.map(player => (
+                  <div key={player.id} className="bg-gray-700/50 p-3 rounded-lg space-y-2">
+                    <h4 className="font-bold text-white text-center border-b border-gray-600 pb-2">{player.name}</h4>
+                    <CodeRow label="Player Code" code={getPlayerCode(player)} />
+                    <CodeRow label="Parent Code" code={getParentCode(player)} />
+                    {allPlayerPINs[player.id] && (
+                      <div className="border-t border-dashed border-gray-600 pt-2 mt-2">
+                        <CodeRow 
+                          label="Custom PIN" 
+                          code={allPlayerPINs[player.id]}
+                          isPIN={true}
+                          onReset={() => handleResetPIN(player.id, player.name)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-center col-span-full py-8">No players found matching your search.</p>
+              )}
             </div>
           </div>
           
