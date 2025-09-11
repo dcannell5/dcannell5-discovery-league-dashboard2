@@ -1,1 +1,1 @@
-// This file is unused. The main login page (`LoginPage.tsx`) serves as the league hub.
+// This component is unused and can be safely deleted. LoginPage.tsx serves as the league hub.

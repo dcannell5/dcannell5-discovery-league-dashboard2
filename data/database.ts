@@ -1,1 +1,1 @@
-// This file is unused. The application's data persistence is handled by Vercel KV.
+// This file is unused and can be safely deleted. Vercel KV is used for data persistence.

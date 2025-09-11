@@ -1,1 +1,1 @@
-// This file is unused. Team generation logic is in `utils/leagueLogic.ts`.
+// This file is unused and can be safely deleted. Team generation logic is in utils/leagueLogic.ts.

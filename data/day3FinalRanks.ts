@@ -1,1 +1,1 @@
-// This file is unused. Player rankings are calculated dynamically.
+// This file is unused and can be safely deleted. Player rankings are calculated dynamically.

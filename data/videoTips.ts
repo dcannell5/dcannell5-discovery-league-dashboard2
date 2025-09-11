@@ -1,1 +1,1 @@
-// This file is unused. Links to video resources are handled within components.
+// This file is unused and can be safely deleted.

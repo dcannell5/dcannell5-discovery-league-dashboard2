@@ -1,5 +1,1 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
- 
-export default function handler(_req: VercelRequest, res: VercelResponse) {
-  res.status(200).json({ message: 'This is a placeholder test file.' });
-}
+// This file was for testing and can be safely deleted.
