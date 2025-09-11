@@ -491,21 +491,28 @@ The application code is designed to automatically use these variables. If they a
 
   const handleCreateLeague = useCallback((config: Omit<LeagueConfig, 'id'>) => {
     const newLeagueId = `league-${Date.now()}`;
-    updateAppData(prev => ({
-      ...prev,
-      leagues: { ...(prev.leagues || {}), [newLeagueId]: {...config, lockedDays: {}} },
-      dailyResults: { ...(prev.dailyResults || {}), [newLeagueId]: {} },
-      allDailyMatchups: { ...(prev.allDailyMatchups || {}), [newLeagueId]: {} },
-      allDailyAttendance: { ...(prev.allDailyAttendance || {}), [newLeagueId]: {} },
-      allPlayerProfiles: { ...(prev.allPlayerProfiles || {}), [newLeagueId]: {} },
-      allRefereeNotes: { ...(prev.allRefereeNotes || {}), [newLeagueId]: {} },
-      allAdminFeedback: { ...(prev.allAdminFeedback || {}), [newLeagueId]: [] },
-      allPlayerFeedback: { ...(prev.allPlayerFeedback || {}), [newLeagueId]: [] },
-      allPlayerPINs: { ...(prev.allPlayerPINs || {}), [newLeagueId]: {} },
-      loginCounters: { ...(prev.loginCounters || {}), [newLeagueId]: {} },
-      teamOfTheDay: { ...(prev.teamOfTheDay || {}), [newLeagueId]: {} },
-      activeLeagueId: newLeagueId,
-    }));
+    updateAppData(prev => {
+        const newState = { ...prev };
+        
+        // Keys to initialize with an empty object
+        const objectKeys: (keyof AppData)[] = [
+            'dailyResults', 'allDailyMatchups', 'allDailyAttendance', 
+            'allPlayerProfiles', 'allRefereeNotes', 'allPlayerPINs', 
+            'loginCounters', 'teamOfTheDay'
+        ];
+        
+        objectKeys.forEach(key => {
+            (newState as any)[key] = { ...(newState[key] || {}), [newLeagueId]: {} };
+        });
+        
+        // Special cases
+        newState.leagues = { ...(newState.leagues || {}), [newLeagueId]: { ...config, lockedDays: {} } };
+        newState.allAdminFeedback = { ...(newState.allAdminFeedback || {}), [newLeagueId]: [] };
+        newState.allPlayerFeedback = { ...(newState.allPlayerFeedback || {}), [newLeagueId]: [] };
+        
+        newState.activeLeagueId = newLeagueId;
+        return newState;
+    });
   }, [updateAppData]);
 
   const handleCancelCreateLeague = useCallback(() => {
@@ -642,34 +649,23 @@ The application code is designed to automatically use these variables. If they a
     if (!activeLeagueId || !activeLeague) return;
     if (window.confirm(`Are you sure you want to permanently delete the "${activeLeague.title}" event? All data will be lost.`)) {
       updateAppData(prev => {
-        const { [activeLeagueId]: _, ...remainingLeagues } = prev.leagues || {};
-        const { [activeLeagueId]: __, ...remainingGameResults } = prev.dailyResults || {};
-        const { [activeLeagueId]: ___, ...remainingAllMatchups } = prev.allDailyMatchups || {};
-        const { [activeLeagueId]: ____, ...remainingAllAttendance } = prev.allDailyAttendance || {};
-        const { [activeLeagueId]: _____, ...remainingAllPlayerProfiles } = prev.allPlayerProfiles || {};
-        const { [activeLeagueId]: ______, ...remainingAllRefereeNotes } = prev.allRefereeNotes || {};
-        const { [activeLeagueId]: _______, ...remainingAllPlayerPINs } = prev.allPlayerPINs || {};
-        const { [activeLeagueId]: ________, ...remainingAdminFeedback } = prev.allAdminFeedback || {};
-        const { [activeLeagueId]: _________, ...remainingPlayerFeedback } = prev.allPlayerFeedback || {};
-        const { [activeLeagueId]: __________, ...remainingLoginCounters } = prev.loginCounters || {};
-        const { [activeLeagueId]: ___________, ...remainingTeamOfTheDay } = prev.teamOfTheDay || {};
+        const newState = { ...prev };
 
+        const keysToDeleteFrom: (keyof AppData)[] = [
+          'leagues', 'dailyResults', 'allDailyMatchups', 'allDailyAttendance', 
+          'allPlayerProfiles', 'allRefereeNotes', 'allAdminFeedback', 'allPlayerFeedback', 
+          'allPlayerPINs', 'loginCounters', 'teamOfTheDay'
+        ];
 
-        return {
-          ...prev,
-          leagues: remainingLeagues,
-          dailyResults: remainingGameResults,
-          allDailyMatchups: remainingAllMatchups,
-          allDailyAttendance: remainingAllAttendance,
-          allPlayerProfiles: remainingAllPlayerProfiles,
-          allRefereeNotes: remainingAllRefereeNotes,
-          allAdminFeedback: remainingAdminFeedback,
-          allPlayerFeedback: remainingPlayerFeedback,
-          allPlayerPINs: remainingAllPlayerPINs,
-          loginCounters: remainingLoginCounters,
-          teamOfTheDay: remainingTeamOfTheDay,
-          activeLeagueId: null,
-        };
+        for (const key of keysToDeleteFrom) {
+          if (newState[key] && typeof newState[key] === 'object' && newState[key] !== null) {
+            const { [activeLeagueId]: _, ...remainingData } = (newState as any)[key];
+            (newState as any)[key] = remainingData;
+          }
+        }
+        
+        newState.activeLeagueId = null;
+        return newState;
       });
     }
   }, [activeLeagueId, activeLeague, updateAppData]);
