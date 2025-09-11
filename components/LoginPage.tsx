@@ -1,12 +1,8 @@
 
-
-
-
 import React, { useState, useMemo } from 'react';
 import type { AppData, LeagueConfig, UpcomingEvent, UserState } from '../types';
 import { IconCalendar, IconClipboardCheck, IconEdit, IconLogin, IconLogout, IconPlusCircle, IconTrophy, IconUserCheck, IconBook } from './Icon';
-import { initializePlayerStats, processDayResults } from '../utils/statsLogic';
-import { sortPlayersWithTieBreaking } from '../utils/rankingLogic';
+import { useLeagueStats } from '../utils/hooks';
 import DataManagementPanel from './DataManagementPanel';
 import { logoUrl } from '../assets/logo';
 
@@ -40,64 +36,43 @@ const LeagueCard: React.FC<{
     onSelect: (id: string) => void;
 }> = ({ league, appData, onSelect }) => {
     
-    const leagueData = useMemo(() => {
-        const { dailyResults, allDailyMatchups, allDailyAttendance } = appData;
-
-        // FIX: Determine progress based on actual recorded data, not the current date.
-        const leagueResults = dailyResults[league.id] || {};
+    const lastRecordedDay = useMemo(() => {
+        const leagueResults = appData.dailyResults[league.id] || {};
         const recordedDays = Object.keys(leagueResults)
           .map(Number)
           .filter(day => day > 0 && leagueResults[day] && Object.keys(leagueResults[day]).length > 0);
-        const lastRecordedDay = recordedDays.length > 0 ? Math.max(...recordedDays) : 0;
-        
-        const stats = initializePlayerStats(league.players);
-        const startDay = league.seededStats ? 4 : 1;
-        
-        if (league.seededStats) {
-            Object.entries(league.seededStats).forEach(([playerIdStr, seeded]) => {
-                const playerId = parseInt(playerIdStr);
-                if (stats[playerId] && seeded) {
-                    Object.assign(stats[playerId], seeded);
-                    stats[playerId].dailyPoints = {};
-                }
-            });
-        }
-        
-        // Process results for all days that have data.
-        for (let day = startDay; day <= lastRecordedDay; day++) {
-            processDayResults(stats, day, dailyResults[league.id]?.[day], allDailyMatchups[league.id]?.[day], allDailyAttendance[league.id]?.[day]);
-        }
+        return recordedDays.length > 0 ? Math.max(...recordedDays) : 0;
+    }, [appData.dailyResults, league.id]);
 
-        Object.values(stats).forEach(p => {
-            const newDailyTotal = Object.keys(p.dailyPoints).reduce((sum, dayKey) => sum + p.dailyPoints[Number(dayKey)], 0);
-            p.leaguePoints = (p.leaguePoints || 0) + newDailyTotal;
-            p.pointDifferential = (p.pointsFor || 0) - (p.pointsAgainst || 0);
-        });
+    const { sortedPlayers } = useLeagueStats(
+        league,
+        appData.dailyResults[league.id] || {},
+        appData.allDailyMatchups[league.id] || {},
+        appData.allDailyAttendance[league.id] || {},
+        lastRecordedDay
+    );
 
-        const sortedPlayers = sortPlayersWithTieBreaking(Object.values(stats));
-        
-        const top3Players = sortedPlayers.slice(0, 3);
-        
+    const { top3Players, progress, nextGameDate } = useMemo(() => {
         const findNextGameDate = () => {
             if (!league.daySchedules) return null;
             const now = new Date();
             const futureDays = Object.entries(league.daySchedules)
                 .map(([day, dateStr]) => ({ day: parseInt(day), date: new Date(dateStr) }))
-                .filter(({ date }) => date > now)
+                .filter(({ date }) => !isNaN(date.getTime()) && date > now)
                 .sort((a, b) => a.date.getTime() - b.date.getTime());
             
             return futureDays.length > 0 ? futureDays[0].date : null;
         };
-
-        const nextGameDate = findNextGameDate();
+        const nextGameDateObj = findNextGameDate();
 
         return {
-            top3Players,
+            top3Players: sortedPlayers.slice(0, 3),
             progress: `${lastRecordedDay > 0 ? lastRecordedDay : 'No'} of ${league.totalDays} Days with Results`,
-            nextGameDate: nextGameDate ? nextGameDate.toLocaleString(undefined, { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Season Complete',
+            nextGameDate: nextGameDateObj ? nextGameDateObj.toLocaleString(undefined, { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Season Complete',
         };
 
-    }, [league, appData]);
+    }, [sortedPlayers, lastRecordedDay, league.totalDays, league.daySchedules]);
+
 
     return (
         <div className="bg-gray-800/60 p-5 rounded-xl border border-gray-700 space-y-4 flex flex-col justify-between">
@@ -106,19 +81,19 @@ const LeagueCard: React.FC<{
                 <div className="mt-4 space-y-3">
                     <div className="flex items-center gap-3 text-sm text-gray-300">
                         <IconClipboardCheck className="w-5 h-5 text-yellow-400 shrink-0"/>
-                        <span>{leagueData.progress}</span>
+                        <span>{progress}</span>
                     </div>
                      <div className="flex items-center gap-3 text-sm text-gray-300">
                         <IconCalendar className="w-5 h-5 text-yellow-400 shrink-0"/>
-                        <span>Next Game: {leagueData.nextGameDate}</span>
+                        <span>Next Game: {nextGameDate}</span>
                     </div>
                     <div className="flex items-start gap-3 text-sm text-gray-300">
                         <IconTrophy className="w-5 h-5 text-yellow-400 shrink-0 mt-0.5"/>
                         <div>
                             <span className="font-semibold">Top Players:</span>
-                            {leagueData.top3Players.length > 0 ? (
+                            {top3Players.length > 0 ? (
                                 <ol className="list-decimal list-inside text-gray-400">
-                                    {leagueData.top3Players.map(p => <li key={p.id}>{p.name} ({p.leaguePoints} pts)</li>)}
+                                    {top3Players.map(p => <li key={p.id}>{p.name} ({p.leaguePoints} pts)</li>)}
                                 </ol>
                             ) : <span className="text-gray-500"> No games played yet.</span>}
                         </div>
