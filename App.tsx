@@ -495,22 +495,21 @@ The application code is designed to automatically use these variables. If they a
     updateAppData(prev => {
         const newState = { ...prev };
         
-        // Keys to initialize with an empty object
-        const objectKeys: (keyof AppData)[] = [
+        // Keys to initialize for a new league.
+        const leagueDataKeys: (keyof AppData)[] = [
             'dailyResults', 'allDailyMatchups', 'allDailyAttendance', 
             'allPlayerProfiles', 'allRefereeNotes', 'allPlayerPINs', 
-            'loginCounters', 'teamOfTheDay'
+            'loginCounters', 'teamOfTheDay', 'allAdminFeedback', 'allPlayerFeedback'
         ];
         
-        objectKeys.forEach(key => {
-            (newState as any)[key] = { ...(newState[key] || {}), [newLeagueId]: {} };
+        leagueDataKeys.forEach(key => {
+            const initialValue = (key === 'allAdminFeedback' || key === 'allPlayerFeedback') ? [] : {};
+            // FIX: The type of newState[key] is a broad union that could be a non-object.
+            // Spreading a non-object is a runtime error. This more specific check ensures we only spread actual, non-null objects.
+            (newState as any)[key] = { ...((newState[key] && typeof newState[key] === 'object' && newState[key] !== null) ? newState[key] : {}), [newLeagueId]: initialValue };
         });
         
-        // Special cases
         newState.leagues = { ...(newState.leagues || {}), [newLeagueId]: { ...config, lockedDays: {} } };
-        newState.allAdminFeedback = { ...(newState.allAdminFeedback || {}), [newLeagueId]: [] };
-        newState.allPlayerFeedback = { ...(newState.allPlayerFeedback || {}), [newLeagueId]: [] };
-        
         newState.activeLeagueId = newLeagueId;
         return newState;
     });
@@ -659,8 +658,11 @@ The application code is designed to automatically use these variables. If they a
         ];
 
         for (const key of keysToDeleteFrom) {
-          if (newState[key] && typeof newState[key] === 'object' && newState[key] !== null) {
-            const { [activeLeagueId]: _, ...remainingData } = (newState as any)[key];
+          // FIX: The type of newState[key] is a broad union that could be a non-object.
+          // Spreading a non-object is a runtime error. This check ensures we only destructure actual, non-null objects.
+          const dataSlice = (newState as any)[key];
+          if (dataSlice && typeof dataSlice === 'object' && dataSlice !== null) {
+            const { [activeLeagueId]: _, ...remainingData } = dataSlice;
             (newState as any)[key] = remainingData;
           }
         }
@@ -683,10 +685,9 @@ The application code is designed to automatically use these variables. If they a
 
           return {
               ...prev,
-// FIX: The type of prev[dataKey] is a broad union that can include non-object types (like string or null),
-// which causes a TypeScript error with object spread syntax. This check ensures we only
-// attempt to spread an actual object, providing a default empty object if the slice doesn't exist or isn't an object.
-              [dataKey]: { ...((prev[dataKey] && typeof prev[dataKey] === 'object') ? prev[dataKey] : {}), [activeLeagueId]: newValue }
+              // FIX: The type of prev[dataKey] is a broad union that includes non-object types (like string or null).
+              // Spreading `null` is a runtime error. This more specific check ensures we only spread actual, non-null objects.
+              [dataKey]: { ...((prev[dataKey] && typeof prev[dataKey] === 'object' && prev[dataKey] !== null) ? prev[dataKey] : {}), [activeLeagueId]: newValue }
           };
       });
   }, [activeLeagueId, updateAppData]);
@@ -732,7 +733,9 @@ The application code is designed to automatically use these variables. If they a
         const allFeedback = prev.allAdminFeedback || {};
         const currentFeedback = allFeedback[activeLeagueId] || [];
         const newAllFeedback = {
-            ...allFeedback,
+            // FIX: The type of prev['allAdminFeedback'] is a broad union that includes non-object types (like string or null).
+            // Spreading `null` is a runtime error. This more specific check ensures we only spread actual, non-null objects.
+            ...((allFeedback && typeof allFeedback === 'object' && allFeedback !== null) ? allFeedback : {}),
             [activeLeagueId]: [...currentFeedback, newFeedback]
         };
         return { ...prev, allAdminFeedback: newAllFeedback };
