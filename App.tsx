@@ -257,72 +257,15 @@ The application code is designed to automatically use these variables. If they a
     fetchData();
   }, [addSystemLog]);
 
-  // Save data to the backend whenever it changes, with debouncing
-  useEffect(() => {
-      if (isSavingExplicitly.current) return;
-
-      if (justSaved.current) {
-        justSaved.current = false;
-        return;
-      }
-
-      // Don't save on the initial load, if data is null, or in a read-only session
-      if (!isInitialized.current || !appData || saveStatus === 'idle' || isReadOnlySession || saveStatus === 'error') {
-          return;
-      }
-
-      // If status is saved, and data changes, it becomes unsaved.
-      if (saveStatus === 'saved') {
-          setSaveStatus('unsaved');
-          return;
-      }
-
-      // This is the debounced save logic
-      const handler = setTimeout(async () => {
-          setSaveStatus('saving');
-          try {
-              const response = await fetch('/api/savedata', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ ...appData, systemLogs }) // Always save latest logs
-              });
-              if (!response.ok) {
-                  const errorText = await response.text();
-                  console.error("Failed to save data to backend:", errorText);
-                  try {
-                    const errorJson = JSON.parse(errorText);
-                    setSaveError(errorJson.details || errorJson.error || 'Unknown server error');
-                  } catch (e) {
-                    setSaveError(errorText || 'Unknown server error');
-                  }
-                  setSaveStatus('error');
-                  addSystemLog({ type: 'Data Save', status: 'Error', message: 'Debounced save failed.', details: errorText });
-              } else {
-                  setSaveStatus('saved');
-                  setSaveError(null);
-                  justSaved.current = true;
-                  addSystemLog({ type: 'Data Save', status: 'Success', message: 'Debounced save successful.' });
-              }
-          } catch (error) {
-              console.error("Failed to save app data to backend:", error);
-              const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-              setSaveError(errorMessage);
-              setSaveStatus('error');
-              addSystemLog({ type: 'Data Save', status: 'Error', message: 'Debounced save failed due to a network or client error.', details: errorMessage });
-          }
-      }, 1500); // Debounce save for 1.5 seconds
-
-      return () => {
-          clearTimeout(handler);
-      };
-  }, [appData, saveStatus, isReadOnlySession, systemLogs, addSystemLog]);
-
-    const forceSave = useCallback(async () => {
+    const handleSaveData = useCallback(async (isManual: boolean) => {
         if (!appData) return;
 
-        isSavingExplicitly.current = true;
         setSaveStatus('saving');
-        setSaveError(null); // Clear previous error on retry
+        if (isManual) {
+            setSaveError(null);
+        }
+
+        const logMessagePrefix = isManual ? 'Manual' : 'Debounced';
 
         try {
             const response = await fetch('/api/savedata', {
@@ -340,23 +283,50 @@ The application code is designed to automatically use these variables. If they a
                     setSaveError(errorText || 'Unknown server error');
                 }
                 setSaveStatus('error');
-                addSystemLog({ type: 'Data Save', status: 'Error', message: 'Manual save failed.', details: errorText });
+                addSystemLog({ type: 'Data Save', status: 'Error', message: `${logMessagePrefix} save failed.`, details: errorText });
             } else {
                 setSaveStatus('saved');
                 setSaveError(null);
                 justSaved.current = true;
-                addSystemLog({ type: 'Data Save', status: 'Success', message: 'Manual save successful.' });
+                addSystemLog({ type: 'Data Save', status: 'Success', message: `${logMessagePrefix} save successful.` });
             }
         } catch (error) {
             console.error("Failed to save app data to backend:", error);
             const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
             setSaveError(errorMessage);
             setSaveStatus('error');
-            addSystemLog({ type: 'Data Save', status: 'Error', message: 'Manual save failed due to a network or client error.', details: errorMessage });
-        } finally {
-            isSavingExplicitly.current = false;
+            addSystemLog({ type: 'Data Save', status: 'Error', message: `${logMessagePrefix} save failed due to a network or client error.`, details: errorMessage });
         }
     }, [appData, systemLogs, addSystemLog]);
+
+    const forceSave = useCallback(async () => {
+        isSavingExplicitly.current = true;
+        await handleSaveData(true);
+        isSavingExplicitly.current = false;
+    }, [handleSaveData]);
+
+    useEffect(() => {
+        if (isSavingExplicitly.current) return;
+        if (justSaved.current) {
+            justSaved.current = false;
+            return;
+        }
+        if (!isInitialized.current || !appData || saveStatus === 'idle' || isReadOnlySession || saveStatus === 'error') {
+            return;
+        }
+        if (saveStatus === 'saved') {
+            setSaveStatus('unsaved');
+            return;
+        }
+
+        const handler = setTimeout(() => {
+            handleSaveData(false);
+        }, 1500);
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [appData, saveStatus, isReadOnlySession, handleSaveData]);
 
 
   // activeLeagueId and upcomingEvent are now derived from appData state
