@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, RefereeNote, UpcomingEvent, PlayerProfile, AllPlayerProfiles, AdminFeedback, PlayerFeedback, AiMessage, ProjectLogEntry, SaveStatus, SystemLog } from './types';
 import { SUPER_ADMIN_CODE, getRefereeCodeForCourt, getPlayerCode, getParentCode } from './utils/auth';
@@ -186,7 +187,12 @@ const App: React.FC = () => {
                     
                     const getSuggestion = (service: string, details: string): string => {
                       if (service === 'kvDatabase') {
-                          if (details.includes('authentication') || details.includes('Unauthorized')) return "This app uses a Vercel KV store named 'leaguestorage'. To fix this, go to your Vercel Project -> Settings -> Environment Variables and ensure these two variables, provided by the KV integration, are present: `leaguestorage_KV_REST_API_URL` and `leaguestorage_KV_REST_API_TOKEN`.";
+                          if (details.includes('Missing required environment variable')) {
+                              return "This app requires a Vercel KV store named 'leaguestorage'. Go to your Vercel Project -> Storage, create the KV store, and link it to your project. Then, go to Settings -> Environment Variables and ensure these two variables, provided by the KV integration, are present: `leaguestorage_KV_REST_API_URL` and `leaguestorage_KV_REST_API_TOKEN`. Finally, redeploy the project.";
+                          }
+                          if (details.includes('authentication') || details.includes('Unauthorized')) {
+                               return "This app uses a Vercel KV store named 'leaguestorage'. To fix this, go to your Vercel Project -> Settings -> Environment Variables and ensure these two variables, provided by the KV integration, are present: `leaguestorage_KV_REST_API_URL` and `leaguestorage_KV_REST_API_TOKEN`.";
+                          }
                       }
                       if (service === 'blobStorage') {
                           if (details.includes('configured')) return "Connect a Vercel Blob store via the Vercel dashboard and ensure `BLOB_READ_WRITE_TOKEN` is set as an environment variable. This is required for image uploads.";

@@ -3,8 +3,12 @@
 import { Redis } from '@upstash/redis';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// Initialize the Redis client using the recommended `fromEnv` method for Vercel KV.
-const redis = Redis.fromEnv();
+// Vercel KV is configured with a specific store name, "leaguestorage",
+// creating prefixed environment variables.
+const redis = new Redis({
+  url: process.env.leaguestorage_KV_REST_API_URL!,
+  token: process.env.leaguestorage_KV_REST_API_TOKEN!,
+});
 
 const APP_DATA_KEY = 'discovery-league-data';
 

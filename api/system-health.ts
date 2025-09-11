@@ -4,9 +4,6 @@ import { Redis } from '@upstash/redis';
 import { put, head, del } from '@vercel/blob';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// Initialize the Redis client using the recommended `fromEnv` method for Vercel KV.
-const redis = Redis.fromEnv();
-
 type HealthStatus = {
   status: 'OK' | 'ERROR';
   details: string;
@@ -18,7 +15,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const checkKv = async (): Promise<HealthStatus> => {
+    const url = process.env.leaguestorage_KV_REST_API_URL;
+    const token = process.env.leaguestorage_KV_REST_API_TOKEN;
+
+    if (!url || !token) {
+        const missingVars = [!url && 'leaguestorage_KV_REST_API_URL', !token && 'leaguestorage_KV_REST_API_TOKEN'].filter(Boolean).join(' and ');
+        const details = `Missing required environment variable(s): ${missingVars}. This usually happens when the Vercel KV integration is not set up correctly. Ensure a KV store named 'leaguestorage' is linked to this project in your Vercel dashboard.`;
+        console.error("Health Check: Vercel KV configuration error.", details);
+        return { status: 'ERROR', details };
+    }
+
     try {
+      const redis = new Redis({ url, token });
       const testKey = 'health_check_redis';
       const testValue = `health-check-${Date.now()}`;
       await redis.set(testKey, testValue, { ex: 10 });
@@ -29,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error("Health Check: Vercel KV connection failed.", errorMessage);
-      return { status: 'ERROR', details: errorMessage };
+      return { status: 'ERROR', details: `Connection test failed. Details: ${errorMessage}` };
     }
   };
 
