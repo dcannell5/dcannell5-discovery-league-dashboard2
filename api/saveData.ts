@@ -1,5 +1,4 @@
 
-
 import { Redis } from '@upstash/redis';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { AppData } from '../types';
@@ -10,14 +9,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+  
+  const url = process.env.leaguestorage_KV_REST_API_URL;
+  const token = process.env.leaguestorage_KV_REST_API_TOKEN;
+
+  if (!url || !token) {
+    const message = "Database connection credentials are not configured on the server.";
+    console.error(`CRITICAL: ${message}`);
+    return res.status(500).json({ error: message, details: "Missing leaguestorage_KV_REST_API_URL or leaguestorage_KV_REST_API_TOKEN." });
+  }
 
   try {
-    // Vercel KV is configured with a specific store name, "leaguestorage",
-    // creating prefixed environment variables.
-    const redis = new Redis({
-      url: process.env.leaguestorage_KV_REST_API_URL!,
-      token: process.env.leaguestorage_KV_REST_API_TOKEN!,
-    });
+    const redis = new Redis({ url, token });
     
     const appData = req.body as AppData;
 
