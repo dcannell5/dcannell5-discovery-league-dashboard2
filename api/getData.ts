@@ -10,8 +10,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const url = process.env.leaguestorage_KV_REST_API_URL || process.env.KV_REST_API_URL;
-  const token = process.env.leaguestorage_KV_REST_API_TOKEN || process.env.KV_REST_API_TOKEN;
+  const url = process.env.LEAGUESTORAGE_KV_REST_API_URL || process.env.KV_REST_API_URL;
+  const token = process.env.LEAGUESTORAGE_KV_REST_API_TOKEN || process.env.KV_REST_API_TOKEN;
 
   if (!url || !token) {
     const message = "Database connection credentials are not configured on the server.";

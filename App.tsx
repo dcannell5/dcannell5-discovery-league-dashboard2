@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, RefereeNote, UpcomingEvent, PlayerProfile, AllPlayerProfiles, AdminFeedback, PlayerFeedback, AiMessage, ProjectLogEntry, SaveStatus, SystemLog } from './types';
 import { SUPER_ADMIN_CODE, getRefereeCodeForCourt, getPlayerCode, getParentCode } from './utils/auth';
@@ -276,7 +277,7 @@ The application cannot connect to its database. This is almost always caused by 
 2.  Navigate to the **Storage** tab.
 3.  Ensure you have a **KV (Redis)** store named \`leaguestorage\` connected to your project.
 4.  If it is connected, go to **Settings > Environment Variables**.
-5.  Confirm that Vercel has automatically created variables named \`leaguestorage_KV_REST_API_URL\` and \`leaguestorage_KV_REST_API_TOKEN\`.
+5.  Confirm that Vercel has automatically created variables named \`LEAGUESTORAGE_KV_REST_API_URL\` and \`LEAGUESTORAGE_KV_REST_API_TOKEN\`.
 
 **Important:** After connecting the store or verifying the variables, you **must create a new deployment** for the changes to take effect.
 
@@ -777,10 +778,9 @@ The application code is designed to automatically use these variables. If they a
     updateAppData(prev => {
         const allFeedback = prev.allAdminFeedback || {};
         const currentFeedback = allFeedback[activeLeagueId] || [];
-        // FIX: Spreading a union type can be problematic. This ensures we only spread an object.
+        // FIX: Spreading a union type (which can be undefined) is an error.
+        // This ensures we only spread an object by providing a fallback.
         const newAllFeedback = {
-            // FIX: Added a check for `null` to prevent spreading a non-object, which would cause a runtime error.
-            // `typeof null` is 'object', so `prev.allAdminFeedback !== null` is a necessary condition.
             ...((prev.allAdminFeedback && typeof prev.allAdminFeedback === 'object' && prev.allAdminFeedback !== null) ? prev.allAdminFeedback : {}),
             [activeLeagueId]: [...currentFeedback, newFeedback]
         };
