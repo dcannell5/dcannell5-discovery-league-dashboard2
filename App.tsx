@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, RefereeNote, UpcomingEvent, PlayerProfile, AllPlayerProfiles, AdminFeedback, PlayerFeedback, AiMessage, ProjectLogEntry, SaveStatus, SystemLog } from './types';
 import { SUPER_ADMIN_CODE, getRefereeCodeForCourt, getPlayerCode, getParentCode } from './utils/auth';
@@ -68,9 +69,23 @@ const SevereWarningModal: React.FC<{
   );
 };
 
+const LOCAL_STORAGE_KEY = 'discovery-league-app-data';
+
 const App: React.FC = () => {
-  const [appData, setAppData] = useState<AppData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [appData, setAppData] = useState<AppData | null>(() => {
+    try {
+        const localDataString = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (localDataString) {
+            console.log("Loaded initial data from local storage.");
+            return JSON.parse(localDataString);
+        }
+    } catch (error) {
+        console.error("Failed to parse localStorage data, removing it.", error);
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+    }
+    return null;
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(!appData);
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const [userState, setUserState] = useState<UserState>({ role: 'NONE' });
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
@@ -92,7 +107,7 @@ const App: React.FC = () => {
   const [adminView, setAdminView] = useState<'hub' | 'leagueSelector'>('hub');
   const [currentView, setCurrentView] = useState<'app' | 'blog'>('app');
   
-  const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
+  const [systemLogs, setSystemLogs] = useState<SystemLog[]>(appData?.systemLogs || []);
   const MAX_LOGS = 50;
   
   const isReadOnlySession = useMemo(() => appData?.leagues[appData.activeLeagueId as string]?.isReadOnly, [appData?.activeLeagueId, appData?.leagues]);
@@ -124,10 +139,24 @@ const App: React.FC = () => {
   }, [systemLogs]);
 
 
-  // Load initial data from the backend
+  // Data persistence to localStorage
+  useEffect(() => {
+    // Only save after the app has initialized to avoid saving initial null/stale state
+    if (isInitialized.current && appData) {
+        try {
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(appData));
+        } catch (error) {
+            console.error("Failed to save data to localStorage:", error);
+        }
+    }
+  }, [appData]);
+
+  // Load initial data from the backend / sync with localStorage
   useEffect(() => {
     const fetchData = async () => {
-      setIsLoading(true);
+      if (!appData) { // Only show full loading screen if no local cache
+        setIsLoading(true);
+      }
       setLoadingError(null);
       try {
         const response = await fetch('/api/getData');
@@ -138,7 +167,11 @@ const App: React.FC = () => {
             setAppData(data);
             setSystemLogs(data.systemLogs || []);
             setSaveStatus('saved');
-            addSystemLog({ type: 'Data Load', status: 'Success', message: 'Application data loaded successfully.' });
+            if (appData) { // If we were showing cached data before
+                addSystemLog({ type: 'Data Load', status: 'Info', message: 'Application data synced with server.' });
+            } else {
+                addSystemLog({ type: 'Data Load', status: 'Success', message: 'Application data loaded successfully.' });
+            }
         } else {
             const responseText = await response.text();
             let errorDetails = `Server responded with status ${response.status}.`;
@@ -158,78 +191,86 @@ const App: React.FC = () => {
         }
       } catch (error) {
         let initialErrorMessage = error instanceof Error ? error.message : String(error);
-        console.error("Could not load initial application data:", initialErrorMessage);
+        console.error("Could not sync with server:", initialErrorMessage);
 
-        if (initialErrorMessage === "SERVER_CRASH") {
-            let baseMessage = "The application failed to start because the initial data load from `/api/getData` failed. This usually indicates a server configuration issue.";
-            initialErrorMessage = baseMessage;
-            
-            try {
-                addSystemLog({ type: 'Health Check', status: 'Info', message: 'Initial data load failed, running system health check for diagnostics.' });
-                const healthResponse = await fetch('/api/system-health');
+        // If API fails but we have local data, don't show the fatal error screen.
+        if (appData) {
+            console.warn("Failed to sync with server, running on local data.", error);
+            setSaveError("Couldn't connect to server. Running in offline mode from last save.");
+            setSaveStatus('error');
+            addSystemLog({ type: 'Data Load', status: 'Error', message: 'Failed to sync with server. Using local data.', details: initialErrorMessage });
+        } else {
+            // If we have no local data and API fails, show fatal error.
+            if (initialErrorMessage === "SERVER_CRASH") {
+                let baseMessage = "The application failed to start because the initial data load from `/api/getData` failed. This usually indicates a server configuration issue.";
+                initialErrorMessage = baseMessage;
+                
+                try {
+                    addSystemLog({ type: 'Health Check', status: 'Info', message: 'Initial data load failed, running system health check for diagnostics.' });
+                    const healthResponse = await fetch('/api/system-health');
 
-                if (healthResponse.ok) {
-                    const healthData = await healthResponse.json();
-                    const healthIssues: string[] = [];
-                    
-                    const serviceNameMap: Record<string, string> = {
-                        kvDatabase: 'Database Service (Vercel KV)',
-                        blobStorage: 'Image Storage (Vercel Blob)',
-                        aiService: 'AI Service (Gemini)'
-                    };
+                    if (healthResponse.ok) {
+                        const healthData = await healthResponse.json();
+                        const healthIssues: string[] = [];
+                        
+                        const serviceNameMap: Record<string, string> = {
+                            kvDatabase: 'Database Service (Vercel KV)',
+                            blobStorage: 'Image Storage (Vercel Blob)',
+                            aiService: 'AI Service (Gemini)'
+                        };
 
-                    const serviceFileMap: Record<string, string> = {
-                        kvDatabase: '/api/getData.ts, /api/saveData.ts, /api/resetData.ts',
-                        blobStorage: '/api/uploadImage.ts',
-                        aiService: '/api/aiHelper.ts, /api/generateCoachingTip.ts, /api/moderateImage.ts, /api/generateTeamOfTheDay.ts'
-                    };
-                    
-                    const getSuggestion = (service: string, details: string): string => {
-                      if (service === 'kvDatabase') {
-                          if (details.includes('Missing') && details.includes('environment variable')) {
-                              return "This app requires a Vercel KV store named 'leaguestorage'. Go to your Vercel Project -> Storage, create the KV store, and link it. This will automatically set the required server environment variables. After linking the store, you must create a new deployment for the changes to apply.";
+                        const serviceFileMap: Record<string, string> = {
+                            kvDatabase: '/api/getData.ts, /api/saveData.ts, /api/resetData.ts',
+                            blobStorage: '/api/uploadImage.ts',
+                            aiService: '/api/aiHelper.ts, /api/generateCoachingTip.ts, /api/moderateImage.ts, /api/generateTeamOfTheDay.ts'
+                        };
+                        
+                        const getSuggestion = (service: string, details: string): string => {
+                          if (service === 'kvDatabase') {
+                              if (details.includes('Missing') && details.includes('environment variable')) {
+                                  return "This app requires a Vercel KV store named 'leaguestorage'. Go to your Vercel Project -> Storage, create the KV store, and link it. This will automatically set the required server environment variables. After linking the store, you must create a new deployment for the changes to apply.";
+                              }
+                              if (details.includes('authentication') || details.includes('Unauthorized')) {
+                                   return "Authentication with Vercel KV failed. Please go to your Vercel Project -> Storage tab and ensure the `leaguestorage` KV store is correctly linked. You may need to re-link it and then create a new deployment.";
+                              }
                           }
-                          if (details.includes('authentication') || details.includes('Unauthorized')) {
-                               return "Authentication with Vercel KV failed. Please go to your Vercel Project -> Storage tab and ensure the `leaguestorage` KV store is correctly linked. You may need to re-link it and then create a new deployment.";
+                          if (service === 'blobStorage') {
+                              if (details.includes('configured')) return "Connect a Vercel Blob store via the Vercel dashboard and ensure `BLOB_READ_WRITE_TOKEN` is set as an environment variable. This is required for image uploads.";
                           }
-                      }
-                      if (service === 'blobStorage') {
-                          if (details.includes('configured')) return "Connect a Vercel Blob store via the Vercel dashboard and ensure `BLOB_READ_WRITE_TOKEN` is set as an environment variable. This is required for image uploads.";
-                      }
-                      if (service === 'aiService') {
-                          return "Add the `API_KEY` environment variable for the Gemini AI service in your Vercel project settings to enable AI features.";
-                      }
-                      return "Check the service status on Vercel and review server logs for more details.";
-                    };
-                    
-                    if (healthData.kvDatabase?.status !== 'OK') {
-                        const service = 'kvDatabase';
-                        const details = healthData.kvDatabase.details;
-                        healthIssues.push(`- Service: ${serviceNameMap[service]}\n  File(s) Affected: ${serviceFileMap[service]}\n  Reason: ${details}\n  To Fix: ${getSuggestion(service, details)}`);
-                    }
-                    if (healthData.blobStorage?.status !== 'OK') {
-                        const service = 'blobStorage';
-                        const details = healthData.blobStorage.details;
-                        healthIssues.push(`- Service: ${serviceNameMap[service]}\n  File(s) Affected: ${serviceFileMap[service]}\n  Reason: ${details}\n  To Fix: ${getSuggestion(service, details)}`);
-                    }
-                    if (healthData.aiService?.status !== 'OK') {
-                        const service = 'aiService';
-                        const details = healthData.aiService.details;
-                        healthIssues.push(`- Service: ${serviceNameMap[service]}\n  File(s) Affected: ${serviceFileMap[service]}\n  Reason: ${details}\n  To Fix: ${getSuggestion(service, details)}`);
-                    }
-                    
-                    if (healthIssues.length > 0) {
-                        initialErrorMessage = "A system health check revealed the following critical configuration errors preventing the app from starting:\n\n" + healthIssues.join('\n\n');
+                          if (service === 'aiService') {
+                              return "Add the `API_KEY` environment variable for the Gemini AI service in your Vercel project settings to enable AI features.";
+                          }
+                          return "Check the service status on Vercel and review server logs for more details.";
+                        };
+                        
+                        if (healthData.kvDatabase?.status !== 'OK') {
+                            const service = 'kvDatabase';
+                            const details = healthData.kvDatabase.details;
+                            healthIssues.push(`- Service: ${serviceNameMap[service]}\n  File(s) Affected: ${serviceFileMap[service]}\n  Reason: ${details}\n  To Fix: ${getSuggestion(service, details)}`);
+                        }
+                        if (healthData.blobStorage?.status !== 'OK') {
+                            const service = 'blobStorage';
+                            const details = healthData.blobStorage.details;
+                            healthIssues.push(`- Service: ${serviceNameMap[service]}\n  File(s) Affected: ${serviceFileMap[service]}\n  Reason: ${details}\n  To Fix: ${getSuggestion(service, details)}`);
+                        }
+                        if (healthData.aiService?.status !== 'OK') {
+                            const service = 'aiService';
+                            const details = healthData.aiService.details;
+                            healthIssues.push(`- Service: ${serviceNameMap[service]}\n  File(s) Affected: ${serviceFileMap[service]}\n  Reason: ${details}\n  To Fix: ${getSuggestion(service, details)}`);
+                        }
+                        
+                        if (healthIssues.length > 0) {
+                            initialErrorMessage = "A system health check revealed the following critical configuration errors preventing the app from starting:\n\n" + healthIssues.join('\n\n');
+                        } else {
+                            initialErrorMessage = baseMessage + "\n\nA health check was run but found no specific configuration errors. The issue might be a temporary network problem or a runtime error in the `/api/getData` server function. Please check the Vercel deployment logs for more details."
+                        }
                     } else {
-                        initialErrorMessage = baseMessage + "\n\nA health check was run but found no specific configuration errors. The issue might be a temporary network problem or a runtime error in the `/api/getData` server function. Please check the Vercel deployment logs for more details."
+                        // Health check returned non-OK status, throw to be caught below
+                        throw new Error(`Health check API responded with status ${healthResponse.status}`);
                     }
-                } else {
-                    // Health check returned non-OK status, throw to be caught below
-                    throw new Error(`Health check API responded with status ${healthResponse.status}`);
-                }
-            } catch (healthError) {
-                console.error("Health check request failed:", healthError);
-                initialErrorMessage = `### Critical Server Configuration Error
+                } catch (healthError) {
+                    console.error("Health check request failed:", healthError);
+                    initialErrorMessage = `### Critical Server Configuration Error
 
 The application cannot connect to its database. This is almost always caused by a misconfiguration of the Vercel KV integration.
 
@@ -244,19 +285,21 @@ The application cannot connect to its database. This is almost always caused by 
 **Important:** After connecting the store or verifying the variables, you **must create a new deployment** for the changes to take effect.
 
 The application code is designed to automatically use these variables. If they are missing or the KV store is not linked, all backend services will fail.`;
+                }
             }
+
+            setLoadingError(initialErrorMessage);
+            addSystemLog({ type: 'Data Load', status: 'Error', message: 'Failed to load application data from server.', details: initialErrorMessage });
+            setAppData(null);
+            setSaveStatus('error');
         }
-        
-        setLoadingError(initialErrorMessage);
-        addSystemLog({ type: 'Data Load', status: 'Error', message: 'Failed to load application data from server.', details: initialErrorMessage });
-        setAppData(null);
-        setSaveStatus('error');
       } finally {
         setIsLoading(false);
         isInitialized.current = true;
       }
     };
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addSystemLog]);
 
     const handleSaveData = useCallback(async (isManual: boolean) => {
@@ -549,6 +592,7 @@ The application code is designed to automatically use these variables. If they a
         if (!response.ok) {
             throw new Error('Failed to reset data on the server.');
         }
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
         alert("Application data has been reset. The page will now reload.");
         window.location.reload();
     } catch (error) {
@@ -737,10 +781,9 @@ The application code is designed to automatically use these variables. If they a
     updateAppData(prev => {
         const allFeedback = prev.allAdminFeedback || {};
         const currentFeedback = allFeedback[activeLeagueId] || [];
-        // FIX: `allFeedback` is guaranteed to be an object due to the `|| {}` initialization.
-        // The complex spread was unnecessary and could cause type inference issues.
+        // FIX: Spreading a union type can be problematic. This ensures we only spread an object.
         const newAllFeedback = {
-            ...allFeedback,
+            ...((prev.allAdminFeedback && typeof prev.allAdminFeedback === 'object') ? prev.allAdminFeedback : {}),
             [activeLeagueId]: [...currentFeedback, newFeedback]
         };
         return { ...prev, allAdminFeedback: newAllFeedback };

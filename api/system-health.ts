@@ -1,5 +1,4 @@
 
-
 import { Redis } from '@upstash/redis';
 import { put, head, del } from '@vercel/blob';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -15,12 +14,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const checkKv = async (): Promise<HealthStatus> => {
-    const url = process.env.leaguestorage_KV_REST_API_URL;
-    const token = process.env.leaguestorage_KV_REST_API_TOKEN;
+    const url = process.env.leaguestorage_KV_REST_API_URL || process.env.KV_REST_API_URL;
+    const token = process.env.leaguestorage_KV_REST_API_TOKEN || process.env.KV_REST_API_TOKEN;
 
     if (!url || !token) {
-        const missingVars = [!url && 'leaguestorage_KV_REST_API_URL', !token && 'leaguestorage_KV_REST_API_TOKEN'].filter(Boolean).join(' and ');
-        const details = `Missing required environment variable(s): ${missingVars}. This usually happens when the Vercel KV integration is not set up correctly. Ensure a KV store named 'leaguestorage' is linked to this project in your Vercel dashboard. Important: The application specifically requires these prefixed variables. Generic names like 'KV_REST_API_URL' will not work.`;
+        const details = `Missing required Vercel KV environment variables. The application looked for 'leaguestorage_KV_REST_API_URL' & 'leaguestorage_KV_REST_API_TOKEN' (for a store named 'leaguestorage') and also the generic 'KV_REST_API_URL' & 'KV_REST_API_TOKEN'. None were found. Please ensure a Vercel KV store is linked to this project in your Vercel dashboard.`;
         console.error("Health Check: Vercel KV configuration error.", details);
         return { status: 'ERROR', details };
     }

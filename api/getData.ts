@@ -10,13 +10,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const url = process.env.leaguestorage_KV_REST_API_URL;
-  const token = process.env.leaguestorage_KV_REST_API_TOKEN;
+  const url = process.env.leaguestorage_KV_REST_API_URL || process.env.KV_REST_API_URL;
+  const token = process.env.leaguestorage_KV_REST_API_TOKEN || process.env.KV_REST_API_TOKEN;
 
   if (!url || !token) {
     const message = "Database connection credentials are not configured on the server.";
     console.error(`CRITICAL: ${message}`);
-    return res.status(500).json({ error: message, details: "Missing leaguestorage_KV_REST_API_URL or leaguestorage_KV_REST_API_TOKEN." });
+    return res.status(500).json({ error: message, details: "Missing Vercel KV environment variables. Ensure a KV store is linked to this project in your Vercel dashboard settings." });
   }
 
   try {

@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import type { ProjectLogEntry } from '../types';
 import { logoUrl } from '../assets/logo';
