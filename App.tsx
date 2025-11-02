@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, RefereeNote, UpcomingEvent, PlayerProfile, AllPlayerProfiles, AdminFeedback, PlayerFeedback, AiMessage, ProjectLogEntry, SaveStatus, SystemLog } from './types';
 import { SUPER_ADMIN_CODE, getRefereeCodeForCourt, getPlayerCode, getParentCode } from './utils/auth';
@@ -648,22 +649,23 @@ The application code is designed to automatically use these variables. If they a
       });
   }, [activeLeagueId, updateAppData]);
 
+  // FIX: Resolved "Spread types may only be created from object types" error
+  // by using 'as const' on the keys array. This allows TypeScript to infer that
+  // `dataSlice` is a destructurable object within the loop.
   const handleDeleteLeague = useCallback(() => {
     if (!activeLeagueId || !activeLeague) return;
     if (window.confirm(`Are you sure you want to permanently delete the "${activeLeague.title}" event? All data will be lost.`)) {
       updateAppData(prev => {
         const newState = { ...prev };
 
-        const keysToDeleteFrom: (keyof AppData)[] = [
+        const keysToDeleteFrom = [
           'leagues', 'dailyResults', 'allDailyMatchups', 'allDailyAttendance', 
           'allPlayerProfiles', 'allRefereeNotes', 'allAdminFeedback', 'allPlayerFeedback', 
           'allPlayerPINs', 'loginCounters', 'teamOfTheDay'
-        ];
+        ] as const;
 
         for (const key of keysToDeleteFrom) {
-          // FIX: The type of newState[key] is a broad union that could be a non-object.
-          // Spreading a non-object is a runtime error. This check ensures we only destructure actual, non-null objects.
-          const dataSlice = (newState as any)[key];
+          const dataSlice = newState[key];
           if (dataSlice && typeof dataSlice === 'object' && dataSlice !== null) {
             const { [activeLeagueId]: _, ...remainingData } = dataSlice;
             (newState as any)[key] = remainingData;
