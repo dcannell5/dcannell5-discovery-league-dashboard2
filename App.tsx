@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, RefereeNote, UpcomingEvent, PlayerProfile, AllPlayerProfiles, AdminFeedback, PlayerFeedback, AiMessage, ProjectLogEntry, SaveStatus, SystemLog } from './types';
 import { SUPER_ADMIN_CODE, getRefereeCodeForCourt, getPlayerCode, getParentCode } from './utils/auth';
@@ -783,7 +779,9 @@ The application code is designed to automatically use these variables. If they a
         const currentFeedback = allFeedback[activeLeagueId] || [];
         // FIX: Spreading a union type can be problematic. This ensures we only spread an object.
         const newAllFeedback = {
-            ...((prev.allAdminFeedback && typeof prev.allAdminFeedback === 'object') ? prev.allAdminFeedback : {}),
+            // FIX: Added a check for `null` to prevent spreading a non-object, which would cause a runtime error.
+            // `typeof null` is 'object', so `prev.allAdminFeedback !== null` is a necessary condition.
+            ...((prev.allAdminFeedback && typeof prev.allAdminFeedback === 'object' && prev.allAdminFeedback !== null) ? prev.allAdminFeedback : {}),
             [activeLeagueId]: [...currentFeedback, newFeedback]
         };
         return { ...prev, allAdminFeedback: newAllFeedback };
