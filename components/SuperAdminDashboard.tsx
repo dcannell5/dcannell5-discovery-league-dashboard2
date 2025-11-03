@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import type { AppData, ProjectLogEntry, SystemLog } from '../types';
 import { IconLayoutDashboard, IconUsersGroup, IconBriefcase, IconShieldCheck, IconShieldExclamation, IconRefresh, IconLogout, IconUserCheck, IconUsers, IconChevronDown, IconClipboard, IconClipboardCheck, IconLogin } from './Icon';
@@ -145,7 +146,6 @@ const NavCard: React.FC<{ icon: React.ReactNode, title: string, description: str
     );
 };
 
-// FIX: Added type for health check response data
 type HealthCheckData = {
     [key: string]: { status: SystemStatusState; details: string };
 };
@@ -162,10 +162,8 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ appData, onLo
       (sum, league) => sum + league.players.length,
       0
     );
-
-    // FIX: The `loginCounters` property was removed from the AppData type.
-    // The stat is now hardcoded to 0.
-    const totalLogins = 0;
+    
+    const totalLogins = 0; // loginCounters has been removed.
     
     return { totalLeagues, totalPlayers, totalLogins };
   }, [appData]);
@@ -190,7 +188,6 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ appData, onLo
     setSystemStatus({ kvDatabase: 'CHECKING', blobStorage: 'CHECKING', aiService: 'CHECKING' });
     try {
         const response = await fetch('/api/system-health');
-        // FIX: Added a type to the parsed JSON to resolve 'unknown' type error.
         const data: HealthCheckData = await response.json();
 
         if (response.ok) {
@@ -230,7 +227,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ appData, onLo
 
   useEffect(() => {
     checkHealth();
-  }, []); // Run only once on mount
+  }, [checkHealth]);
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 p-4 sm:p-6 md:p-8">

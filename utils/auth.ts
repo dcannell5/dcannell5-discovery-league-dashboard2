@@ -1,5 +1,4 @@
 
-
 import type { LeagueConfig } from "../types";
 
 // This is a simple, client-side "security" mechanism for demonstration purposes.

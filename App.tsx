@@ -1,5 +1,4 @@
 
-
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, RefereeNote, UpcomingEvent, AdminFeedback, AiMessage, ProjectLogEntry, SaveStatus, SystemLog } from './types';
 import { SUPER_ADMIN_CODE, getRefereeCodeForCourt } from './utils/auth';
@@ -557,7 +556,6 @@ The application code is designed to automatically use these variables. If they a
         for (const leagueId in appData.leagues) {
             const leagueConfig = { ...appData.leagues[leagueId], id: leagueId };
 
-            // Referee check first
             const courtNames = getAllCourtNames(leagueConfig);
             for (const courtName of courtNames) {
                 if (upperCaseCode === getRefereeCodeForCourt(new Date(), courtName)) {
@@ -616,7 +614,7 @@ The application code is designed to automatically use these variables. If they a
   const createActiveLeagueSetter = <T,>(dataKey: keyof AppData) => useCallback((value: React.SetStateAction<T>) => {
       if (!activeLeagueId) return;
       updateAppData(prev => {
-          const dataSlice = prev[dataKey] as Record<string, T>;
+          const dataSlice = prev[dataKey] as Record<string, T> | undefined;
           const leagueData = dataSlice ? (dataSlice[activeLeagueId] || {}) : {};
           
           const newValue = typeof value === 'function' 
@@ -625,9 +623,7 @@ The application code is designed to automatically use these variables. If they a
 
           return {
               ...prev,
-              // FIX: Cast prev[dataKey] to object to satisfy TypeScript's spread operator requirements.
-              // This is safe because this setter is only used for object-based slices of AppData.
-              [dataKey]: { ...((prev[dataKey] as object) || {}), [activeLeagueId]: newValue }
+              [dataKey]: { ...(prev[dataKey] as object || {}), [activeLeagueId]: newValue }
           };
       });
   }, [activeLeagueId, updateAppData]);

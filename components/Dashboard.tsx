@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Player, AllDailyResults, GameResult, UserState, AllDailyMatchups, AllDailyAttendance, LeagueConfig, CourtResults, CoachingTip, AdminFeedback, AppData } from '../types';
 import { generateCoachingTip } from '../services/geminiService';
@@ -405,9 +404,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   }
 
   // PUBLIC VIEW
-  // FIX: Changed condition to be `userState.role !== 'SUPER_ADMIN' && userState.role !== 'REFEREE'` which is logically
-  // equivalent to `userState.role === 'NONE'` but resolves a TypeScript type inference error.
-  if (userState.role !== 'SUPER_ADMIN' && userState.role !== 'REFEREE') {
+  if (userState.role === 'NONE') {
     return (
         <>
          <div className="min-h-screen bg-gray-900 text-gray-100">
