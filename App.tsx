@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, RefereeNote, UpcomingEvent, PlayerProfile, AllPlayerProfiles, AdminFeedback, PlayerFeedback, AiMessage, ProjectLogEntry, SaveStatus, SystemLog } from './types';
 import { SUPER_ADMIN_CODE, getRefereeCodeForCourt, getPlayerCode, getParentCode } from './utils/auth';
@@ -690,9 +691,6 @@ The application code is designed to automatically use these variables. If they a
       });
   }, [activeLeagueId, updateAppData]);
 
-  // FIX: Resolved "Spread types may only be created from object types" error
-  // by using 'as const' on the keys array. This allows TypeScript to infer that
-  // `dataSlice` is a destructurable object within the loop.
   const handleDeleteLeague = useCallback(() => {
     if (!activeLeagueId || !activeLeague) return;
     if (window.confirm(`Are you sure you want to permanently delete the "${activeLeague.title}" event? All data will be lost.`)) {
@@ -708,7 +706,8 @@ The application code is designed to automatically use these variables. If they a
         for (const key of keysToDeleteFrom) {
           const dataSlice = newState[key];
           if (dataSlice && typeof dataSlice === 'object' && dataSlice !== null) {
-            const { [activeLeagueId]: _, ...remainingData } = dataSlice;
+            // FIX: TypeScript cannot infer that the union type of `dataSlice` is a valid object for destructuring with a computed property. Casting to `Record<string, any>` provides a safe type assertion.
+            const { [activeLeagueId]: _, ...remainingData } = dataSlice as Record<string, any>;
             (newState as any)[key] = remainingData;
           }
         }

@@ -1,10 +1,10 @@
-
 import { Redis } from '@upstash/redis';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const APP_DATA_KEY = 'discovery-league-data';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }

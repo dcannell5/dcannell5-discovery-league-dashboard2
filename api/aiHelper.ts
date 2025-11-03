@@ -19,6 +19,7 @@ const responseSchema = {
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     if (!process.env.API_KEY) {
         return res.status(500).json({ response: 'API key is not configured on the server.' });
     }
