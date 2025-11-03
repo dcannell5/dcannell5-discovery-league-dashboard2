@@ -45,9 +45,7 @@ export type AllDailyMatchups = Record<number, DailyCourtMatchups>;
 export type UserState = 
   | { role: 'NONE' }
   | { role: 'SUPER_ADMIN' }
-  | { role: 'REFEREE', court: string }
-  | { role: 'PLAYER', playerId: number }
-  | { role: 'PARENT', playerId: number };
+  | { role: 'REFEREE', court: string };
 
 // --- Attendance Types ---
 export type PlayerDailyAttendance = boolean[];
@@ -78,18 +76,6 @@ export interface LeagueConfig {
     seededStats?: Record<number, Partial<PlayerWithStats>>;
 }
 
-// --- Player Profile Types ---
-export interface PlayerProfile {
-  imageUrl?: string;
-  bio?: string;
-  suggestions?: string;
-  guardianName?: string;
-  guardianPhone?: string;
-  guardianEmail?: string;
-}
-
-export type AllPlayerProfiles = Record<number, PlayerProfile>;
-
 // --- Referee Notes Types ---
 export interface RefereeNote {
   note: string;
@@ -109,18 +95,6 @@ export interface AdminFeedback {
   };
   submittedAt: string;
 }
-
-export interface PlayerFeedback {
-  id: string;
-  feedbackText: string;
-  submittedBy: {
-    role: 'PLAYER' | 'PARENT';
-    playerId: number;
-    playerName: string;
-  };
-  submittedAt: string;
-}
-
 
 // --- AI Service Types ---
 export interface CoachingTip {
@@ -148,12 +122,6 @@ export interface UpcomingEvent {
     description: string;
     buttonText: string;
     buttonUrl: string;
-}
-
-// --- Login Tracking Types ---
-export interface LoginCounts {
-  playerLogins: number;
-  parentLogins: number;
 }
 
 // --- Project Log / Blog Types ---
@@ -186,12 +154,8 @@ export interface AppData {
     dailyResults: Record<string, AllDailyResults>;
     allDailyMatchups: Record<string, AllDailyMatchups>;
     allDailyAttendance: Record<string, AllDailyAttendance>;
-    allPlayerProfiles: Record<string, AllPlayerProfiles>;
     allRefereeNotes: Record<string, AllRefereeNotes>;
     allAdminFeedback?: Record<string, AdminFeedback[]>; // leagueId -> referee feedback[]
-    allPlayerFeedback?: Record<string, PlayerFeedback[]>; // leagueId -> player/parent feedback[]
-    allPlayerPINs?: Record<string, Record<number, string>>; // leagueId -> playerId -> PIN
-    loginCounters?: Record<string, Record<number, LoginCounts>>; // leagueId -> playerId -> LoginCounts
     projectLogs?: ProjectLogEntry[]; // Global project logs for the build blog
     systemLogs?: SystemLog[]; // Global system logs for admin diagnostics
     teamOfTheDay?: Record<string, Record<number, { teamPlayerIds: number[]; summary: string }>>; // leagueId -> day -> Team of the Day

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { IconVolleyball, IconUserCheck, IconLogout, IconLogin, IconUserCircle, IconTrash, IconSwitch } from './Icon';
+import { IconVolleyball, IconUserCheck, IconLogout, IconLogin, IconTrash, IconSwitch } from './Icon';
 import type { UserState } from '../types';
 
 interface HeaderProps {
@@ -8,20 +8,17 @@ interface HeaderProps {
     userState: UserState;
     onLoginClick: () => void;
     onLogout: () => void;
-    onDeleteLeague: () => void;
-    onSwitchLeague: () => void;
-    onViewProfile: (playerId: number) => void;
+    onDeleteLeague?: () => void;
+    onSwitchLeague?: () => void;
 }
 
 const roleTextMap: Record<UserState['role'], string> = {
     SUPER_ADMIN: 'Super Admin',
     REFEREE: 'Referee',
-    PLAYER: 'Player',
-    PARENT: 'Parent',
     NONE: ''
 };
 
-const Header: React.FC<HeaderProps> = ({ title, userState, onLoginClick, onLogout, onDeleteLeague, onSwitchLeague, onViewProfile }) => {
+const Header: React.FC<HeaderProps> = ({ title, userState, onLoginClick, onLogout, onDeleteLeague, onSwitchLeague }) => {
   return (
     <header className="mb-8 relative pt-14 md:pt-4">
        <div className="absolute top-0 right-0 flex items-center gap-4">
@@ -33,17 +30,7 @@ const Header: React.FC<HeaderProps> = ({ title, userState, onLoginClick, onLogou
                             {userState.role === 'REFEREE' ? `Referee (${userState.court})` : roleTextMap[userState.role]}
                         </span>
                     </div>
-                     {userState.role === 'PLAYER' && (
-                         <button onClick={() => onViewProfile(userState.playerId)} className="flex items-center gap-2 text-sm text-gray-400 hover:text-yellow-400 transition-colors" aria-label="My Profile">
-                            <IconUserCircle className="w-4 h-4"/>
-                         </button>
-                     )}
-                     {userState.role === 'PARENT' && (
-                         <button onClick={() => onViewProfile(userState.playerId)} className="flex items-center gap-2 text-sm text-gray-400 hover:text-yellow-400 transition-colors" aria-label="View Child's Profile">
-                            <IconUserCircle className="w-4 h-4"/>
-                         </button>
-                     )}
-                     {userState.role === 'SUPER_ADMIN' && (
+                     {userState.role === 'SUPER_ADMIN' && onDeleteLeague && onSwitchLeague && (
                         <>
                          <button onClick={onSwitchLeague} className="flex items-center gap-2 text-sm text-gray-400 hover:text-yellow-400 transition-colors" aria-label="Switch League">
                             <IconSwitch className="w-4 h-4"/>

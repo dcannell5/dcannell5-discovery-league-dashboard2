@@ -145,6 +145,10 @@ const NavCard: React.FC<{ icon: React.ReactNode, title: string, description: str
     );
 };
 
+// FIX: Added type for health check response data
+type HealthCheckData = {
+    [key: string]: { status: SystemStatusState; details: string };
+};
 
 const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ appData, onLogout, onNavigateToLeagues, projectLogs, onSaveProjectLog, systemLogs, addSystemLog }) => {
   const [systemStatus, setSystemStatus] = useState<SystemStatus>({ kvDatabase: 'CHECKING', blobStorage: 'CHECKING', aiService: 'CHECKING' });
@@ -159,15 +163,9 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ appData, onLo
       0
     );
 
-    const totalLogins = Object.values(appData.loginCounters || {}).reduce(
-      (leagueSum, leagueCounters) =>
-        leagueSum +
-        Object.values(leagueCounters).reduce(
-          (playerSum, counts) => playerSum + (counts.playerLogins || 0) + (counts.parentLogins || 0),
-          0
-        ),
-      0
-    );
+    // FIX: The `loginCounters` property was removed from the AppData type.
+    // The stat is now hardcoded to 0.
+    const totalLogins = 0;
     
     return { totalLeagues, totalPlayers, totalLogins };
   }, [appData]);
@@ -192,7 +190,8 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ appData, onLo
     setSystemStatus({ kvDatabase: 'CHECKING', blobStorage: 'CHECKING', aiService: 'CHECKING' });
     try {
         const response = await fetch('/api/system-health');
-        const data = await response.json();
+        // FIX: Added a type to the parsed JSON to resolve 'unknown' type error.
+        const data: HealthCheckData = await response.json();
 
         if (response.ok) {
             setSystemStatus({
@@ -208,7 +207,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ appData, onLo
             };
 
             Object.entries(data).forEach(([key, value]) => {
-                const { status, details } = value as { status: SystemStatusState, details: string };
+                const { status, details } = value;
                 const serviceName = serviceNameMap[key] || key;
                  addSystemLog({
                     type: 'Health Check',
@@ -219,7 +218,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ appData, onLo
                 });
             });
         } else {
-            throw new Error(data.error || 'Unknown error');
+            throw new Error((data as any).error || 'Unknown error');
         }
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);

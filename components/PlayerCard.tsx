@@ -1,57 +1,32 @@
-
-
 import React from 'react';
-import type { Player, PlayerWithStats } from '../types';
+import type { PlayerWithStats } from '../types';
+import { IconUserCircle } from './Icon';
 
 interface PlayerCardProps {
   player: PlayerWithStats;
   onClick: (playerId: number) => void;
   isClickable: boolean;
-  isSwapMode?: boolean;
-  playerToSwap?: Player | null;
-  onPlayerSelectForSwap?: (player: Player) => void;
 }
 
-const PlayerCard: React.FC<PlayerCardProps> = ({ 
-    player, 
-    onClick, 
-    isClickable,
-    isSwapMode = false,
-    playerToSwap = null,
-    onPlayerSelectForSwap
-}) => {
-  const gradeText = player.grade ? `G${player.grade}` : 'N/A';
-  
-  const isSelectedForSwap = isSwapMode && playerToSwap?.id === player.id;
-  
-  const cardClasses = [
-    "bg-gray-700 p-3 rounded-lg text-center h-full flex flex-col justify-center transform transition-all duration-300",
-    (isClickable || isSwapMode) ? "hover:-translate-y-1 hover:shadow-lg hover:shadow-yellow-500/10" : "",
-    isSelectedForSwap ? "ring-2 ring-yellow-400 shadow-lg shadow-yellow-500/20" : "",
-    isSwapMode ? "cursor-pointer" : ""
-  ].join(' ');
-
-  const content = (
-      <div className={cardClasses}>
-        <div className="font-bold text-white truncate text-base">{player.name}</div>
-        <div className="text-sm text-gray-400">{gradeText}</div>
-        <div className="text-lg font-semibold text-yellow-400 mt-1">{player.leaguePoints} pts</div>
-      </div>
-  );
-
+const PlayerCard: React.FC<PlayerCardProps> = ({ player, onClick, isClickable }) => {
   const handleClick = () => {
-    if (isSwapMode && onPlayerSelectForSwap) {
-        onPlayerSelectForSwap(player);
-    } else if (isClickable) {
-        onClick(player.id);
+    if (isClickable) {
+      onClick(player.id);
     }
   };
 
-  if (isClickable || (isSwapMode && onPlayerSelectForSwap)) {
-    return <button onClick={handleClick} className="w-full h-full text-left">{content}</button>;
-  }
-
-  return content;
+  return (
+    <div
+      onClick={handleClick}
+      className={`flex flex-col items-center text-center p-2 rounded-lg transition-colors ${
+        isClickable ? 'cursor-pointer bg-gray-700/50 hover:bg-gray-700' : 'bg-gray-700/50'
+      }`}
+    >
+      <IconUserCircle className="w-10 h-10 text-gray-400 mb-2" />
+      <p className="font-semibold text-white text-sm truncate w-full">{player.name}</p>
+      <p className="text-xs text-yellow-400">{player.leaguePoints} pts</p>
+    </div>
+  );
 };
 
 export default PlayerCard;

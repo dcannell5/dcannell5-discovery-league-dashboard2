@@ -1,24 +1,22 @@
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import type { Player, AllDailyResults, GameResult, UserState, AllDailyMatchups, PlayerWithStats, AllDailyAttendance, LeagueConfig, CourtResults, CoachingTip, AdminFeedback, PlayerFeedback, AppData, LoginCounts } from '../types';
+import type { Player, AllDailyResults, GameResult, UserState, AllDailyMatchups, AllDailyAttendance, LeagueConfig, CourtResults, CoachingTip, AdminFeedback, AppData } from '../types';
 import { generateCoachingTip } from '../services/geminiService';
 import { generateDailyMatchups, getAllCourtNames } from '../utils/leagueLogic';
-import { sortPlayersWithTieBreaking } from '../utils/rankingLogic';
 import { getActiveDay } from '../utils/auth';
 import { useLeagueStats } from '../utils/hooks';
 import { initializePlayerStats, processDayResults } from '../utils/statsLogic';
 import Header from './Header';
 import Leaderboard from './Leaderboard';
 import DaySelector from './DaySelector';
-import DailyGroups from './DailyGroups';
-import PlayerTable from './PlayerTable';
 import ScoreEntryDashboard from './ScoreEntryDashboard';
 import Announcements from './Announcements';
 import AdminPanel from './AdminPanel';
 import LinksAndShare from './LinksAndShare';
-import PlayerAttendancePanel from './PlayerAttendancePanel';
 import { IconTrophy, IconLightbulb, IconQuote, IconVideo, IconLock, IconMessage, IconSettings } from './Icon';
-import PlayerCard from './PlayerCard';
 import TeamOfTheDay from './TeamOfTheDay';
+import PublicGamesDisplay from './PublicGamesDisplay';
 
 interface DashboardProps {
     appData: AppData;
@@ -30,10 +28,8 @@ interface DashboardProps {
     onSwitchLeague: () => void;
     onAnnouncementsSave: (newText: string) => void;
     onScheduleSave: (newSchedules: Record<number, string>) => void;
-    onViewProfile: (playerId: number) => void;
     onSaveRefereeNote: (playerId: number, note: string, day: number) => void;
     onSaveAdminFeedback: (feedbackText: string) => void;
-    onSetPlayerDailyAttendance: (day: number, playerId: number, isPresent: boolean) => void;
     onToggleDayLock: (day: number) => void;
     gameResults: AllDailyResults;
     setGameResults: React.Dispatch<React.SetStateAction<AllDailyResults>>;
@@ -42,10 +38,6 @@ interface DashboardProps {
     allAttendance: AllDailyAttendance;
     setAllAttendance: React.Dispatch<React.SetStateAction<AllDailyAttendance>>;
     allAdminFeedback: AdminFeedback[];
-    allPlayerFeedback: PlayerFeedback[];
-    allPlayerPINs: Record<number, string>;
-    onResetPlayerPIN: (playerId: number) => void;
-    loginCounters: Record<number, LoginCounts>;
     teamOfTheDay: Record<number, { teamPlayerIds: number[], summary: string }>;
     setTeamOfTheDay: React.Dispatch<React.SetStateAction<Record<number, { teamPlayerIds: number[], summary: string }>>>;
 }
@@ -61,12 +53,11 @@ const InfoCard: React.FC<{icon: React.ReactNode, title: string, children: React.
 );
 
 const Dashboard: React.FC<DashboardProps> = ({
-    appData, leagueConfig, userState, onLoginClick, onLogout, onDeleteLeague, onSwitchLeague, onAnnouncementsSave, onScheduleSave, onViewProfile, onSaveRefereeNote,
+    appData, leagueConfig, userState, onLoginClick, onLogout, onDeleteLeague, onSwitchLeague, onAnnouncementsSave, onScheduleSave, onSaveRefereeNote,
     onSaveAdminFeedback,
-    onSetPlayerDailyAttendance,
     onToggleDayLock,
     gameResults, setGameResults, allMatchups, setAllMatchups, allAttendance, setAllAttendance,
-    allAdminFeedback, allPlayerFeedback, allPlayerPINs, onResetPlayerPIN, loginCounters,
+    allAdminFeedback,
     teamOfTheDay, setTeamOfTheDay
 }) => {
   const [currentDay, setCurrentDay] = useState<number>(1);
@@ -107,6 +98,8 @@ const Dashboard: React.FC<DashboardProps> = ({
     currentDay
   );
 
+  const courtKeys = useMemo(() => getAllCourtNames(leagueConfig), [leagueConfig]);
+
   // Effect to generate matchups for the current day if they don't exist.
   useEffect(() => {
     if ((allMatchups[currentDay] && Object.keys(allMatchups[currentDay]).length > 0) || leagueConfig.players.length === 0) {
@@ -123,51 +116,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
   }, [currentDay, allMatchups, leagueConfig, setAllMatchups, playersForGenerator]);
   
-  // Memoize the calculation of court groups based on the final display stats
-  const { dailyCourtGroups, courtKeys } = useMemo(() => {
-    const courtKeys = getAllCourtNames(leagueConfig);
-    const dailyCourtGroups: Record<string, PlayerWithStats[]> = {};
-    const { playersPerTeam, leagueType } = leagueConfig;
-    const playersPerCourt = playersPerTeam * 2;
-
-    // For standard leagues on Day 2+, we display groups based on the current day's final rankings
-    // to match the overall player table. This reflects the projected court tiers for the *next* day.
-    if (leagueType === 'standard' && currentDay > 1) {
-        courtKeys.forEach((courtName, i) => {
-            const startIndex = i * playersPerCourt;
-            const endIndex = startIndex + playersPerCourt;
-            
-            const courtPlayers = sortedDisplayPlayers.slice(startIndex, endIndex);
-            dailyCourtGroups[courtName] = courtPlayers; // Already sorted
-        });
-    } else {
-        // For Day 1 of standard leagues or for any day of a custom tournament, players are mixed.
-        // In this case, we show the actual players who were grouped onto each court for that day.
-        const matchupsForCurrentDay = allMatchups[currentDay];
-        if (matchupsForCurrentDay && Object.keys(matchupsForCurrentDay).length > 0) {
-            courtKeys.forEach(courtKey => {
-                const playersMap = new Map<number, Player>();
-                // Use all games to gather all unique players on the court for the day
-                matchupsForCurrentDay[courtKey]?.forEach(game => {
-                    [...game.teamA, ...game.teamB].forEach(p => {
-                        if(!playersMap.has(p.id)) playersMap.set(p.id, p);
-                    });
-                });
-            
-                const courtPlayersWithStats = Array.from(playersMap.keys())
-                    .map(id => sortedDisplayPlayers.find(p => p.id === id)) // get up-to-date stats
-                    .filter(Boolean) as PlayerWithStats[];
-
-                dailyCourtGroups[courtKey] = sortPlayersWithTieBreaking(courtPlayersWithStats);
-            });
-        }
-    }
-
-    return { 
-        dailyCourtGroups,
-        courtKeys
-    };
-  }, [sortedDisplayPlayers, currentDay, allMatchups, leagueConfig]);
   
   useEffect(() => {
     setCoachingTip(null);
@@ -430,10 +378,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     };
   }, [printableContent]);
 
-  const isClickable = userState.role !== 'NONE';
-  const showDiscoveryView = leagueConfig.leagueType === 'custom' || (leagueConfig.leagueType === 'standard' && currentDay === 1);
-  const isPlayerOrParent = userState.role === 'PLAYER' || userState.role === 'PARENT';
-
   if (userState.role === 'SUPER_ADMIN' && showAdminPanel) {
     return (
         <div className="min-h-screen bg-gray-900 text-gray-100">
@@ -453,17 +397,79 @@ const Dashboard: React.FC<DashboardProps> = ({
                     appData={appData}
                     leagueConfig={leagueConfig}
                     onScheduleSave={onScheduleSave}
-                    allPlayerPINs={allPlayerPINs}
-                    onResetPlayerPIN={onResetPlayerPIN}
                     allAdminFeedback={allAdminFeedback}
-                    allPlayerFeedback={allPlayerFeedback}
-                    loginCounters={loginCounters}
                 />
             </main>
         </div>
     );
   }
 
+  // PUBLIC VIEW
+  // FIX: Changed condition to be `userState.role !== 'SUPER_ADMIN' && userState.role !== 'REFEREE'` which is logically
+  // equivalent to `userState.role === 'NONE'` but resolves a TypeScript type inference error.
+  if (userState.role !== 'SUPER_ADMIN' && userState.role !== 'REFEREE') {
+    return (
+        <>
+         <div className="min-h-screen bg-gray-900 text-gray-100">
+            <main className="container mx-auto p-4 md:p-8">
+              <Header 
+                  title={leagueConfig.title} 
+                  userState={userState} 
+                  onLoginClick={onLoginClick} 
+                  onLogout={onLogout} 
+              />
+              <Announcements 
+                  text={leagueConfig.announcements}
+                  userRole={userState.role}
+                  onSave={onAnnouncementsSave}
+              />
+               <div className="my-8 p-6 bg-gray-800/50 rounded-2xl shadow-2xl border border-gray-700">
+                  <h2 className="text-2xl font-bold text-yellow-400 mb-4 flex items-center justify-center">
+                      <IconTrophy className="w-6 h-6 mr-3"/>
+                      Standings: Day {currentDay}
+                      <span className="text-lg text-gray-400 ml-2 font-normal">{formatScheduledDate(leagueConfig.daySchedules?.[currentDay])}</span>
+                  </h2>
+                  <DaySelector
+                      currentDay={currentDay}
+                      totalDays={leagueConfig.totalDays}
+                      daySchedules={leagueConfig.daySchedules}
+                      lockedDays={leagueConfig.lockedDays}
+                      onDayChange={setCurrentDay}
+                      userRole={userState.role}
+                      realCurrentLeagueDay={realCurrentLeagueDay}
+                  />
+                  <Leaderboard players={sortedDisplayPlayers.slice(0, 3)} />
+              </div>
+              
+              <TeamOfTheDay
+                day={currentDay}
+                players={leagueConfig.players}
+                teamData={teamOfTheDay[currentDay]}
+                userRole={userState.role}
+                onGenerate={handleGenerateTeamOfTheDay}
+                isLoading={isGeneratingTeam}
+                error={generationError}
+              />
+
+              <PublicGamesDisplay
+                courtTitle={courtKeys[0]}
+                matchups={allMatchups[currentDay]?.[courtKeys[0]]}
+                results={gameResults[currentDay]?.[courtKeys[0]]}
+              />
+
+              <LinksAndShare leagueTitle={leagueConfig.title} />
+            </main>
+          </div>
+          {printableContent && (
+            <div className="printable">
+              {printableContent}
+            </div>
+          )}
+        </>
+    );
+  }
+
+  // ADMIN/REFEREE VIEW
   return (
     <>
       <div className="min-h-screen bg-gray-900 text-gray-100">
@@ -475,7 +481,6 @@ const Dashboard: React.FC<DashboardProps> = ({
               onLogout={onLogout} 
               onDeleteLeague={onDeleteLeague}
               onSwitchLeague={onSwitchLeague}
-              onViewProfile={onViewProfile} 
           />
           
           <Announcements 
@@ -497,17 +502,6 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
            )}
 
-          {userState.role === 'NONE' && <LinksAndShare leagueTitle={leagueConfig.title} />}
-          {isPlayerOrParent && (
-            <PlayerAttendancePanel 
-              leagueConfig={leagueConfig}
-              userState={userState}
-              allAttendance={allAttendance}
-              onSetPlayerDailyAttendance={onSetPlayerDailyAttendance}
-              realCurrentLeagueDay={realCurrentLeagueDay}
-            />
-          )}
-
           <div className="my-8 p-6 bg-gray-800/50 rounded-2xl shadow-2xl border border-gray-700">
               <h2 className="text-2xl font-bold text-yellow-400 mb-4 flex items-center justify-center">
                   <IconTrophy className="w-6 h-6 mr-3"/>
@@ -523,7 +517,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                   userRole={userState.role}
                   realCurrentLeagueDay={realCurrentLeagueDay}
               />
-              <Leaderboard players={sortedDisplayPlayers.slice(0, 3)} />
           </div>
 
           {isDayLocked && (
@@ -605,7 +598,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <IconLock className="w-8 h-8 text-yellow-400 mt-1 shrink-0"/>
                         <div>
                             <h4 className="font-bold text-yellow-400">Did You Know?</h4>
-                            <p className="text-gray-300">You can set a custom 4-6 digit PIN for easier login. Visit your profile page to set it up!</p>
+                            <p className="text-gray-300">Referees and Admins can log in using their assigned codes to manage scores and league settings.</p>
                         </div>
                     </div>
                     <a href="https://www.youtube.com/@darrencannell/videos" target="_blank" rel="noopener noreferrer" className="bg-gray-700/50 p-4 rounded-lg flex items-start gap-3 hover:bg-gray-700 transition-colors">
@@ -616,40 +609,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                     </a>
                 </div>
-          </div>
-
-          {showDiscoveryView ? (
-              <div className="my-8 p-6 bg-gray-800/50 rounded-2xl shadow-2xl border border-gray-700">
-                  <h2 className="text-2xl font-bold text-center text-yellow-400 mb-4">
-                      {leagueConfig.leagueType === 'standard' ? 'Day 1 Discovery Round' : 'All Players'}
-                  </h2>
-                  <p className="text-center text-gray-400 max-w-2xl mx-auto mb-8">For this event format, all players are mixed and will play with different teammates to promote discovery and varied competition.</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                      {sortedDisplayPlayers.map(player => (
-                          <PlayerCard 
-                              key={player.id} 
-                              player={player} 
-                              onClick={onViewProfile}
-                              isClickable={isClickable}
-                          />
-                      ))}
-                  </div>
-              </div>
-          ) : (
-               <div>
-                   <h2 className="text-3xl font-bold text-yellow-400 mt-12 mb-4 text-center">Ranked Court Tiers</h2>
-                   <p className="text-center text-gray-400 max-w-2xl mx-auto -mt-2 mb-8">Based on the current overall rankings, these are the projected court tiers for the next day of play.</p>
-                  <DailyGroups 
-                      dailyCourtGroups={dailyCourtGroups}
-                      courtOrder={courtKeys}
-                      onPlayerClick={onViewProfile} 
-                      userState={userState}
-                  />
-              </div>
-          )}
-
-          <div className="mt-12">
-            <PlayerTable players={sortedDisplayPlayers} onPlayerClick={onViewProfile} userState={userState} />
           </div>
         </main>
       </div>

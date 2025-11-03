@@ -1,5 +1,6 @@
 
-import type { Player, LeagueConfig } from "../types";
+
+import type { LeagueConfig } from "../types";
 
 // This is a simple, client-side "security" mechanism for demonstration purposes.
 // In a real application, this would be handled by a secure backend server.
@@ -22,23 +23,6 @@ export function getRefereeCodeForCourt(date: Date, courtName: string): string {
     const courtAbbr = courtName.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
     return `REF-${courtAbbr}-${year}${month}${day}`;
 }
-
-/**
- * Generates a unique login code for a player.
- */
-export function getPlayerCode(player: Player): string {
-    const namePart = player.name.split(' ')[0].toUpperCase().replace(/[^A-Z]/g, '');
-    return `PLYR-${player.id}-${namePart}`;
-}
-
-/**
- * Generates a unique login code for a player's parent/guardian.
- */
-export function getParentCode(player: Player): string {
-    const namePart = player.name.split(' ')[0].toUpperCase().replace(/[^A-Z]/g, '');
-    return `PRNT-${player.id}-${namePart}`;
-}
-
 
 /**
  * Calculates the current active day of the league.

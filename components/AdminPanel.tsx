@@ -1,22 +1,19 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import type { AdminFeedback, PlayerFeedback, LeagueConfig, AppData, LoginCounts } from '../types';
-import { getPlayerCode, getParentCode, getRefereeCodeForCourt } from '../utils/auth';
+
+import React, { useState, useEffect } from 'react';
+import type { AdminFeedback, LeagueConfig, AppData } from '../types';
+import { getRefereeCodeForCourt } from '../utils/auth';
 import { getAllCourtNames } from '../utils/leagueLogic';
 import HelpIcon from './HelpIcon';
-import { IconLightbulb, IconRefresh, IconDownload, IconUsers, IconClipboard, IconClipboardCheck, IconSearch } from './Icon';
+import { IconLightbulb, IconDownload, IconClipboard, IconClipboardCheck } from './Icon';
 
 interface AdminPanelProps {
   appData: AppData;
   leagueConfig: LeagueConfig;
   onScheduleSave: (newSchedules: Record<number, string>) => void;
-  allPlayerPINs: Record<number, string>;
-  onResetPlayerPIN: (playerId: number) => void;
   allAdminFeedback: AdminFeedback[];
-  allPlayerFeedback: PlayerFeedback[];
-  loginCounters: Record<number, LoginCounts>;
 }
 
-const CodeRow: React.FC<{label: string, code: string, isPIN?: boolean, onReset?: () => void}> = ({label, code, isPIN, onReset}) => {
+const CodeRow: React.FC<{label: string, code: string}> = ({label, code}) => {
     const [copied, setCopied] = useState(false);
 
     const handleCopy = () => {
@@ -30,37 +27,21 @@ const CodeRow: React.FC<{label: string, code: string, isPIN?: boolean, onReset?:
             <span className="text-gray-400">{label}:</span>
             <div className="flex items-center gap-2 bg-gray-900 px-2 py-1.5 rounded-md">
                 <span className="font-mono text-yellow-300">
-                    {isPIN ? '••••••' : code}
+                    {code}
                 </span>
                 <button onClick={handleCopy} title="Copy code" className="text-gray-500 hover:text-white transition-colors">
                     {copied ? <IconClipboardCheck className="w-4 h-4 text-green-400" /> : <IconClipboard className="w-4 h-4" />}
                 </button>
-                {isPIN && onReset && (
-                    <button onClick={onReset} title="Reset PIN to default code" className="text-gray-500 hover:text-red-400 transition-colors">
-                        <IconRefresh className="w-4 h-4" />
-                    </button>
-                )}
             </div>
         </div>
     );
 };
 
 
-const AdminPanel: React.FC<AdminPanelProps> = ({ appData, leagueConfig, onScheduleSave, allPlayerPINs, onResetPlayerPIN, allAdminFeedback, allPlayerFeedback, loginCounters }) => {
+const AdminPanel: React.FC<AdminPanelProps> = ({ appData, leagueConfig, onScheduleSave, allAdminFeedback }) => {
   const today = new Date();
   const courtNames = getAllCourtNames(leagueConfig);
   const [schedules, setSchedules] = useState(leagueConfig.daySchedules || {});
-  const [playerSearch, setPlayerSearch] = useState('');
-
-  const filteredPlayers = useMemo(() => {
-    const sorted = [...leagueConfig.players].sort((a, b) => a.name.localeCompare(b.name));
-    if (!playerSearch.trim()) {
-      return sorted;
-    }
-    return sorted.filter(player =>
-      player.name.toLowerCase().includes(playerSearch.toLowerCase().trim())
-    );
-  }, [leagueConfig.players, playerSearch]);
   
   useEffect(() => {
     setSchedules(leagueConfig.daySchedules || {});
@@ -74,12 +55,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ appData, leagueConfig, onSchedu
   const handleSaveSchedules = () => {
     onScheduleSave(schedules);
     alert('Schedule updated!');
-  };
-
-  const handleResetPIN = (playerId: number, playerName: string) => {
-    if (window.confirm(`Are you sure you want to reset the PIN for ${playerName}? They will need to use their default code to log in again.`)) {
-      onResetPlayerPIN(playerId);
-    }
   };
 
   const handleExport = () => {
@@ -145,7 +120,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ appData, leagueConfig, onSchedu
                 </button>
             </div>
           </div>
-
+        </div>
+        
+        <div className="space-y-6">
            <div>
                 <h3 className="text-lg font-semibold text-white mb-3 text-center flex items-center justify-center">
                     Data Backup
@@ -177,102 +154,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ appData, leagueConfig, onSchedu
               )}
             </div>
           </div>
-
-        </div>
-        
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-lg font-semibold text-white mb-3 text-center flex items-center justify-center">
-              Player Access Management
-              <HelpIcon text="Manage permanent access codes. Click the icon to copy. Use the refresh icon to reset a player's custom PIN to their default code."/>
-            </h3>
-             <div className="relative mb-4">
-              <input
-                type="text"
-                placeholder="Search players..."
-                value={playerSearch}
-                onChange={(e) => setPlayerSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-yellow-400"
-              />
-              <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[400px] lg:max-h-[500px] overflow-y-auto pr-2">
-              {filteredPlayers.length > 0 ? (
-                filteredPlayers.map(player => (
-                  <div key={player.id} className="bg-gray-700/50 p-3 rounded-lg space-y-2">
-                    <h4 className="font-bold text-white text-center border-b border-gray-600 pb-2">{player.name}</h4>
-                    <CodeRow label="Player Code" code={getPlayerCode(player)} />
-                    <CodeRow label="Parent Code" code={getParentCode(player)} />
-                    {allPlayerPINs[player.id] && (
-                      <div className="border-t border-dashed border-gray-600 pt-2 mt-2">
-                        <CodeRow 
-                          label="Custom PIN" 
-                          code={allPlayerPINs[player.id]}
-                          isPIN={true}
-                          onReset={() => handleResetPIN(player.id, player.name)}
-                        />
-                      </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-500 text-center col-span-full py-8">No players found matching your search.</p>
-              )}
-            </div>
-          </div>
-          
-           <div>
-            <h3 className="text-lg font-semibold text-white mb-3 text-center flex items-center justify-center">
-              <IconUsers className="w-5 h-5 mr-2" />
-              Player Login Activity
-              <HelpIcon text="Tracks the number of times each user type logs in."/>
-            </h3>
-            <div className="bg-gray-700/50 p-3 rounded-lg max-h-60 overflow-y-auto">
-                <div className="sticky top-0 bg-gray-700/50 grid grid-cols-4 gap-2 text-xs font-bold text-gray-400 border-b border-gray-600 pb-2 mb-2">
-                    <span>Player</span>
-                    <span className="text-center">Player</span>
-                    <span className="text-center">Parent</span>
-                    <span className="text-center">PIN Set?</span>
-                </div>
-                <div className="space-y-2">
-                {leagueConfig.players.sort((a,b) => a.name.localeCompare(b.name)).map(player => {
-                    const counts = loginCounters[player.id] || { playerLogins: 0, parentLogins: 0 };
-                    const hasPIN = !!allPlayerPINs[player.id];
-                    return (
-                        <div key={player.id} className="grid grid-cols-4 gap-2 items-center text-sm">
-                            <span className="text-white truncate">{player.name}</span>
-                            <span className="text-center text-gray-300">{counts.playerLogins}</span>
-                            <span className="text-center text-gray-300">{counts.parentLogins}</span>
-                            <span className={`text-center font-semibold ${hasPIN ? 'text-green-400' : 'text-gray-500'}`}>{hasPIN ? 'Yes' : 'No'}</span>
-                        </div>
-                    );
-                })}
-                </div>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-lg font-semibold text-white mb-3 text-center flex items-center justify-center">
-              <IconLightbulb className="w-5 h-5 mr-2" />
-              Player & Parent Feedback
-              <HelpIcon text="Ideas and comments submitted by players and their parents."/>
-            </h3>
-            <div className="bg-gray-700/50 p-3 rounded-lg space-y-3 max-h-60 overflow-y-auto">
-              {allPlayerFeedback.length > 0 ? (
-                [...allPlayerFeedback].reverse().map(feedback => (
-                  <div key={feedback.id} className="bg-gray-900/70 p-3 rounded-md">
-                    <p className="text-gray-200 text-sm whitespace-pre-wrap">"{feedback.feedbackText}"</p>
-                    <p className="text-xs text-gray-400 mt-2 text-right">
-                        — From {feedback.submittedBy.playerName} ({feedback.submittedBy.role}) on {new Date(feedback.submittedAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                ))
-              ) : (
-                <p className="text-gray-500 text-center text-sm py-4">No player or parent feedback has been submitted yet.</p>
-              )}
-            </div>
-          </div>
-
         </div>
       </div>
     </div>

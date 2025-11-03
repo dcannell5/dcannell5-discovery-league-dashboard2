@@ -1,13 +1,12 @@
 
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, RefereeNote, UpcomingEvent, PlayerProfile, AllPlayerProfiles, AdminFeedback, PlayerFeedback, AiMessage, ProjectLogEntry, SaveStatus, SystemLog } from './types';
-import { SUPER_ADMIN_CODE, getRefereeCodeForCourt, getPlayerCode, getParentCode } from './utils/auth';
+import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, RefereeNote, UpcomingEvent, AdminFeedback, AiMessage, ProjectLogEntry, SaveStatus, SystemLog } from './types';
+import { SUPER_ADMIN_CODE, getRefereeCodeForCourt } from './utils/auth';
 import { getAllCourtNames } from './utils/leagueLogic';
 import SetupScreen from './components/SetupScreen';
 import Dashboard from './components/Dashboard';
 import LoginScreen from './components/LoginScreen';
-import ProfilePage from './components/ProfilePage';
 import LoginPage from './components/LoginPage';
 import SuperAdminDashboard from './components/SuperAdminDashboard';
 import AiHelper from './components/AiHelper';
@@ -88,7 +87,6 @@ const App: React.FC = () => {
   const [userState, setUserState] = useState<UserState>({ role: 'NONE' });
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string>('');
-  const [viewingProfileOfPlayerId, setViewingProfileOfPlayerId] = useState<number | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   
   const [isAiHelperOpen, setIsAiHelperOpen] = useState(false);
@@ -399,51 +397,6 @@ The application code is designed to automatically use these variables. If they a
       setSaveError('Processing file...');
       await new Promise(resolve => setTimeout(resolve, 50));
 
-      const imagesToUpload: { leagueId: string, playerId: string, imageUrl: string }[] = [];
-      if (importedData.allPlayerProfiles) {
-        for (const leagueId in importedData.allPlayerProfiles) {
-          const playerProfiles = importedData.allPlayerProfiles[leagueId];
-          for (const playerId in playerProfiles) {
-            const profile = playerProfiles[playerId];
-            if (profile.imageUrl && profile.imageUrl.startsWith('data:image')) {
-              imagesToUpload.push({ leagueId, playerId, imageUrl: profile.imageUrl });
-            }
-          }
-        }
-      }
-
-      if (imagesToUpload.length > 0) {
-        const profilesCopy = JSON.parse(JSON.stringify(importedData.allPlayerProfiles));
-        setSaveError(`Found ${imagesToUpload.length} images to upload...`);
-        addSystemLog({ type: 'Image Upload', status: 'Info', message: `Import found ${imagesToUpload.length} local images to upload.` });
-        await new Promise(resolve => setTimeout(resolve, 50));
-        
-        for (let i = 0; i < imagesToUpload.length; i++) {
-          const { leagueId, playerId, imageUrl } = imagesToUpload[i];
-          setSaveError(`Uploading image ${i + 1} of ${imagesToUpload.length}...`);
-          await new Promise(resolve => setTimeout(resolve, 50));
-
-          const imageExtension = imageUrl.match(/data:image\/(.*?);/)?.[1] || 'png';
-          const fileName = `profile-images/league-${leagueId}-player-${playerId}-${Date.now()}.${imageExtension}`;
-
-          const uploadResponse = await fetch('/api/uploadImage', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ file: imageUrl, fileName: fileName }),
-          });
-
-          if (!uploadResponse.ok) {
-            const errorText = await uploadResponse.text();
-            throw new Error(`Image upload failed for player ${playerId}: ${errorText}`);
-          }
-          
-          const uploadResult = await uploadResponse.json();
-          profilesCopy[leagueId][playerId].imageUrl = uploadResult.url;
-        }
-        addSystemLog({ type: 'Image Upload', status: 'Success', message: `Successfully uploaded ${imagesToUpload.length} images.` });
-        dataToSave = { ...importedData, allPlayerProfiles: profilesCopy };
-      }
-
       setSaveError('Saving final data...');
       await new Promise(resolve => setTimeout(resolve, 50));
       setAppData(dataToSave);
@@ -492,12 +445,8 @@ The application code is designed to automatically use these variables. If they a
             dailyResults: { [presetLeagueId]: dailyResults },
             allDailyMatchups: { [presetLeagueId]: matchups },
             allDailyAttendance: { [presetLeagueId]: {} },
-            allPlayerProfiles: { [presetLeagueId]: {} },
             allRefereeNotes: { [presetLeagueId]: {} },
             allAdminFeedback: { [presetLeagueId]: [] },
-            allPlayerFeedback: { [presetLeagueId]: [] },
-            allPlayerPINs: { [presetLeagueId]: {} },
-            loginCounters: { [presetLeagueId]: {} },
             teamOfTheDay: { [presetLeagueId]: {} },
             projectLogs: appData?.projectLogs || [], // Persist logs across sessions
             systemLogs: appData?.systemLogs || [], // Persist logs
@@ -517,17 +466,13 @@ The application code is designed to automatically use these variables. If they a
   }, [appData, activeLeagueId]);
   
   const activeDataSlices = useMemo(() => {
-    if (!appData || !activeLeagueId) return { dailyResults: {}, allDailyMatchups: {}, allDailyAttendance: {}, allPlayerProfiles: {}, allRefereeNotes: {}, allAdminFeedback: [], allPlayerFeedback: [], allPlayerPINs: {}, loginCounters: {}, teamOfTheDay: {} };
+    if (!appData || !activeLeagueId) return { dailyResults: {}, allDailyMatchups: {}, allDailyAttendance: {}, allRefereeNotes: {}, allAdminFeedback: [], teamOfTheDay: {} };
     return {
       dailyResults: appData.dailyResults[activeLeagueId] || {},
       allDailyMatchups: appData.allDailyMatchups[activeLeagueId] || {},
       allDailyAttendance: appData.allDailyAttendance[activeLeagueId] || {},
-      allPlayerProfiles: appData.allPlayerProfiles[activeLeagueId] || {},
       allRefereeNotes: appData.allRefereeNotes[activeLeagueId] || {},
       allAdminFeedback: appData.allAdminFeedback?.[activeLeagueId] || [],
-      allPlayerFeedback: appData.allPlayerFeedback?.[activeLeagueId] || [],
-      allPlayerPINs: appData.allPlayerPINs?.[activeLeagueId] || {},
-      loginCounters: appData.loginCounters?.[activeLeagueId] || {},
       teamOfTheDay: appData.teamOfTheDay?.[activeLeagueId] || {},
     };
   }, [appData, activeLeagueId]);
@@ -537,20 +482,13 @@ The application code is designed to automatically use these variables. If they a
     updateAppData(prev => {
         const newState = { ...prev };
         
-        // Keys to initialize for a new league.
-        // FIX: Using 'as const' narrows the type of `key` in the forEach loop below.
-        // This allows TypeScript to correctly infer that `newState[key]` is an object type, not a broad union,
-        // which resolves the "Spread types may only be created from object types" error.
         const leagueDataKeys = [
             'dailyResults', 'allDailyMatchups', 'allDailyAttendance', 
-            'allPlayerProfiles', 'allRefereeNotes', 'allPlayerPINs', 
-            'loginCounters', 'teamOfTheDay', 'allAdminFeedback', 'allPlayerFeedback'
+            'allRefereeNotes', 'teamOfTheDay', 'allAdminFeedback'
         ] as const;
         
         leagueDataKeys.forEach(key => {
-            const initialValue = (key === 'allAdminFeedback' || key === 'allPlayerFeedback') ? [] : {};
-            // The type of newState[key] is a broad union that could be a non-object.
-            // Spreading a non-object is a runtime error. This more specific check ensures we only spread actual, non-null objects.
+            const initialValue = (key === 'allAdminFeedback') ? [] : {};
             (newState as any)[key] = { ...((newState[key] && typeof newState[key] === 'object' && newState[key] !== null) ? newState[key] : {}), [newLeagueId]: initialValue };
         });
         
@@ -579,7 +517,6 @@ The application code is designed to automatically use these variables. If they a
       return;
     }
     setUserState({ role: 'NONE' });
-    setViewingProfileOfPlayerId(null);
     setAdminView('hub'); // Reset admin view on logout
     setCurrentView('app'); // Ensure we are on the main app view
   }, [isReadOnlySession]);
@@ -630,50 +567,10 @@ The application code is designed to automatically use these variables. If they a
                     return;
                 }
             }
-            
-            // Player/Parent check
-            for (const player of leagueConfig.players) {
-                const playerPINs = appData.allPlayerPINs?.[leagueId] || {};
-                let successfulRole: 'PLAYER' | 'PARENT' | null = null;
-
-                // Priority: Custom PIN, Player Code, Parent Code
-                if (playerPINs[player.id] && upperCaseCode === playerPINs[player.id]) {
-                    successfulRole = 'PLAYER'; // Assumption: PIN login is for the player
-                } else if (upperCaseCode === getPlayerCode(player)) { 
-                    successfulRole = 'PLAYER';
-                } else if (upperCaseCode === getParentCode(player)) { 
-                    successfulRole = 'PARENT';
-                }
-
-                if (successfulRole) {
-                    setUserState({ role: successfulRole, playerId: player.id });
-                    handleSetActiveLeagueId(leagueId);
-                    setShowLoginModal(false);
-
-                    // Increment login counter
-                    updateAppData(prev => {
-                        const counters = prev.loginCounters || {};
-                        const leagueCounters = counters[leagueId] || {};
-                        const playerCounters = leagueCounters[player.id] || { playerLogins: 0, parentLogins: 0 };
-
-                        if (successfulRole === 'PLAYER') {
-                            playerCounters.playerLogins = (playerCounters.playerLogins || 0) + 1;
-                        } else if (successfulRole === 'PARENT') {
-                            playerCounters.parentLogins = (playerCounters.parentLogins || 0) + 1;
-                        }
-
-                        const newLeagueCounters = { ...leagueCounters, [player.id]: playerCounters };
-                        const newAllCounters = { ...counters, [leagueId]: newLeagueCounters };
-                        
-                        return { ...prev, loginCounters: newAllCounters };
-                    });
-                    return;
-                }
-            }
         }
     }
     setAuthError('Invalid access code. Please try again.');
-}, [appData, updateAppData]);
+}, [appData]);
   
   const handleAnnouncementsSave = useCallback((newAnnouncements: string) => {
       if (!activeLeagueId) return;
@@ -699,14 +596,12 @@ The application code is designed to automatically use these variables. If they a
 
         const keysToDeleteFrom = [
           'leagues', 'dailyResults', 'allDailyMatchups', 'allDailyAttendance', 
-          'allPlayerProfiles', 'allRefereeNotes', 'allAdminFeedback', 'allPlayerFeedback', 
-          'allPlayerPINs', 'loginCounters', 'teamOfTheDay'
+          'allRefereeNotes', 'allAdminFeedback', 'teamOfTheDay'
         ] as const;
 
         for (const key of keysToDeleteFrom) {
           const dataSlice = newState[key];
           if (dataSlice && typeof dataSlice === 'object' && dataSlice !== null) {
-            // FIX: TypeScript cannot infer that the union type of `dataSlice` is a valid object for destructuring with a computed property. Casting to `Record<string, any>` provides a safe type assertion.
             const { [activeLeagueId]: _, ...remainingData } = dataSlice as Record<string, any>;
             (newState as any)[key] = remainingData;
           }
@@ -730,9 +625,9 @@ The application code is designed to automatically use these variables. If they a
 
           return {
               ...prev,
-              // FIX: The type of prev[dataKey] is a broad union that includes non-object types (like string or null).
-              // Spreading `null` is a runtime error. This more specific check ensures we only spread actual, non-null objects.
-              [dataKey]: { ...((prev[dataKey] && typeof prev[dataKey] === 'object' && prev[dataKey] !== null) ? prev[dataKey] : {}), [activeLeagueId]: newValue }
+              // FIX: Cast prev[dataKey] to object to satisfy TypeScript's spread operator requirements.
+              // This is safe because this setter is only used for object-based slices of AppData.
+              [dataKey]: { ...((prev[dataKey] as object) || {}), [activeLeagueId]: newValue }
           };
       });
   }, [activeLeagueId, updateAppData]);
@@ -742,17 +637,6 @@ The application code is designed to automatically use these variables. If they a
   const setAllDailyAttendance = createActiveLeagueSetter<AllDailyAttendance>('allDailyAttendance');
   const setTeamOfTheDay = createActiveLeagueSetter<Record<number, { teamPlayerIds: number[], summary: string }>>('teamOfTheDay');
   
-  const handleSetPlayerDailyAttendance = useCallback((day: number, playerId: number, isPresent: boolean) => {
-    if (!activeLeague || activeLeague.lockedDays?.[day]) return;
-    setAllDailyAttendance(prev => {
-        const newAttendance: AllDailyAttendance = JSON.parse(JSON.stringify(prev));
-        if (!newAttendance[day]) newAttendance[day] = {};
-        const gamesPerDay = activeLeague.gamesPerDay;
-        newAttendance[day][playerId] = Array(gamesPerDay).fill(isPresent);
-        return newAttendance;
-    });
-  }, [activeLeague, setAllDailyAttendance]);
-
   const handleSaveRefereeNote = useCallback((playerId: number, note: string, day: number) => {
     if (!activeLeagueId || userState.role !== 'REFEREE') return;
     const newNote: RefereeNote = { note, day, court: userState.court, date: new Date().toISOString() };
@@ -777,43 +661,13 @@ The application code is designed to automatically use these variables. If they a
     updateAppData(prev => {
         const allFeedback = prev.allAdminFeedback || {};
         const currentFeedback = allFeedback[activeLeagueId] || [];
-        // FIX: Spreading a union type (which can be undefined) is an error.
-        // This ensures we only spread an object by providing a fallback.
         const newAllFeedback = {
-            ...((prev.allAdminFeedback && typeof prev.allAdminFeedback === 'object' && prev.allAdminFeedback !== null) ? prev.allAdminFeedback : {}),
+            ...allFeedback,
             [activeLeagueId]: [...currentFeedback, newFeedback]
         };
         return { ...prev, allAdminFeedback: newAllFeedback };
     });
   }, [activeLeagueId, updateAppData, userState]);
-
-  const handleSavePlayerFeedback = useCallback((feedbackText: string) => {
-    if (!activeLeagueId || !activeLeague || (userState.role !== 'PLAYER' && userState.role !== 'PARENT')) return;
-    
-    const player = activeLeague.players.find(p => p.id === userState.playerId);
-    if (!player) return;
-
-    const newFeedback: PlayerFeedback = {
-      id: `player-feedback-${Date.now()}`,
-      feedbackText,
-      submittedBy: {
-        role: userState.role,
-        playerId: player.id,
-        playerName: player.name
-      },
-      submittedAt: new Date().toISOString(),
-    };
-
-    updateAppData(prev => {
-        const allFeedback = prev.allPlayerFeedback || {};
-        const currentFeedback = allFeedback[activeLeagueId] || [];
-        const newAllFeedback = {
-            ...allFeedback,
-            [activeLeagueId]: [...currentFeedback, newFeedback]
-        };
-        return { ...prev, allPlayerFeedback: newAllFeedback };
-    });
-  }, [activeLeagueId, activeLeague, updateAppData, userState]);
 
   const handleScheduleSave = useCallback((newSchedules: Record<number, string>) => {
     if (!activeLeagueId) return;
@@ -830,39 +684,6 @@ The application code is designed to automatically use these variables. If they a
     });
 }, [activeLeagueId, updateAppData]);
 
-
-  const handleProfileSave = useCallback((playerId: number, newProfile: PlayerProfile) => {
-    if (!activeLeagueId) return;
-    updateAppData(prev => {
-      const allProfiles = prev.allPlayerProfiles || {};
-      const currentProfiles = allProfiles[activeLeagueId] || {};
-      const newAllPlayerProfiles: Record<string, AllPlayerProfiles> = { ...allProfiles, [activeLeagueId]: { ...currentProfiles, [playerId]: newProfile } };
-      return { ...prev, allPlayerProfiles: newAllPlayerProfiles };
-    });
-  }, [activeLeagueId, updateAppData]);
-
-  const handleSetPlayerPIN = useCallback((playerId: number, pin: string) => {
-    if (!activeLeagueId) return;
-    updateAppData(prev => {
-      const allPINs = prev.allPlayerPINs || {};
-      const leaguePINs = allPINs[activeLeagueId] || {};
-      const newLeaguePINs = { ...leaguePINs, [playerId]: pin };
-      const newAllPINs = { ...allPINs, [activeLeagueId]: newLeaguePINs };
-      return { ...prev, allPlayerPINs: newAllPINs };
-    });
-  }, [activeLeagueId, updateAppData]);
-
-  const handleResetPlayerPIN = useCallback((playerId: number) => {
-    if (!activeLeagueId) return;
-    updateAppData(prev => {
-      const allPINs = prev.allPlayerPINs || {};
-      const leaguePINs = allPINs[activeLeagueId] || {};
-      const { [playerId]: _, ...remainingPINs } = leaguePINs;
-      const newAllPINs = { ...allPINs, [activeLeagueId]: remainingPINs };
-      return { ...prev, allPlayerPINs: newAllPINs };
-    });
-  }, [activeLeagueId, updateAppData]);
-  
   const handleToggleDayLock = useCallback((day: number) => {
     if (!activeLeagueId) return;
     updateAppData(prev => {
@@ -887,11 +708,6 @@ The application code is designed to automatically use these variables. If they a
     });
   }, [activeLeagueId, updateAppData]);
 
-  const handleViewProfile = useCallback((playerId: number) => {
-    if (userState.role !== 'NONE') setViewingProfileOfPlayerId(playerId);
-    else setShowLoginModal(true);
-  }, [userState.role]);
-  
   const handleAiQuery = useCallback(async (query: string) => {
     if (!appData) return;
 
@@ -998,55 +814,29 @@ The application code is designed to automatically use these variables. If they a
         onCancel={handleCancelCreateLeague} 
     />;
   } else if (activeLeague) {
-      const viewingPlayer = viewingProfileOfPlayerId ? activeLeague.players.find(p => p.id === viewingProfileOfPlayerId) : null;
-      if (viewingPlayer) {
-          pageContent = <ProfilePage 
-              player={viewingPlayer}
-              profile={activeDataSlices.allPlayerProfiles[viewingPlayer.id] || {}}
-              userState={userState}
-              onSave={handleProfileSave}
-              onBack={() => setViewingProfileOfPlayerId(null)}
-              refereeNotes={activeDataSlices.allRefereeNotes[viewingPlayer.id] || []}
-              currentPIN={activeDataSlices.allPlayerPINs[viewingPlayer.id]}
-              onSetPIN={(pin) => handleSetPlayerPIN(viewingPlayer.id, pin)}
-              onSavePlayerFeedback={handleSavePlayerFeedback}
-              addSystemLog={addSystemLog}
-              leagueConfig={activeLeague}
-              gameResults={activeDataSlices.dailyResults}
-              allMatchups={activeDataSlices.allDailyMatchups}
-              allAttendance={activeDataSlices.allDailyAttendance}
-          />;
-      } else {
-          pageContent = <Dashboard
-              appData={appData}
-              leagueConfig={activeLeague}
-              userState={userState}
-              onLoginClick={() => setShowLoginModal(true)}
-              onLogout={handleLogout}
-              onDeleteLeague={handleDeleteLeague}
-              onSwitchLeague={() => handleSetActiveLeagueId(null)}
-              onAnnouncementsSave={handleAnnouncementsSave}
-              onScheduleSave={handleScheduleSave}
-              onViewProfile={handleViewProfile}
-              onSaveRefereeNote={handleSaveRefereeNote}
-              onSaveAdminFeedback={handleSaveAdminFeedback}
-              onSetPlayerDailyAttendance={handleSetPlayerDailyAttendance}
-              onToggleDayLock={handleToggleDayLock}
-              gameResults={activeDataSlices.dailyResults}
-              setGameResults={setDailyResults}
-              allMatchups={activeDataSlices.allDailyMatchups}
-              setAllMatchups={setAllDailyMatchups}
-              allAttendance={activeDataSlices.allDailyAttendance}
-              setAllAttendance={setAllDailyAttendance}
-              allAdminFeedback={activeDataSlices.allAdminFeedback}
-              allPlayerFeedback={activeDataSlices.allPlayerFeedback}
-              allPlayerPINs={activeDataSlices.allPlayerPINs}
-              onResetPlayerPIN={handleResetPlayerPIN}
-              loginCounters={activeDataSlices.loginCounters}
-              teamOfTheDay={activeDataSlices.teamOfTheDay}
-              setTeamOfTheDay={setTeamOfTheDay}
-          />;
-      }
+      pageContent = <Dashboard
+          appData={appData}
+          leagueConfig={activeLeague}
+          userState={userState}
+          onLoginClick={() => setShowLoginModal(true)}
+          onLogout={handleLogout}
+          onDeleteLeague={handleDeleteLeague}
+          onSwitchLeague={() => handleSetActiveLeagueId(null)}
+          onAnnouncementsSave={handleAnnouncementsSave}
+          onScheduleSave={handleScheduleSave}
+          onSaveRefereeNote={handleSaveRefereeNote}
+          onSaveAdminFeedback={handleSaveAdminFeedback}
+          onToggleDayLock={handleToggleDayLock}
+          gameResults={activeDataSlices.dailyResults}
+          setGameResults={setDailyResults}
+          allMatchups={activeDataSlices.allDailyMatchups}
+          setAllMatchups={setAllDailyMatchups}
+          allAttendance={activeDataSlices.allDailyAttendance}
+          setAllAttendance={setAllDailyAttendance}
+          allAdminFeedback={activeDataSlices.allAdminFeedback}
+          teamOfTheDay={activeDataSlices.teamOfTheDay}
+          setTeamOfTheDay={setTeamOfTheDay}
+      />;
   } else {
       pageContent = <LoginPage 
           appData={appData}
