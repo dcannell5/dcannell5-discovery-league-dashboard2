@@ -16,6 +16,7 @@ import LinksAndShare from './LinksAndShare';
 import { IconTrophy, IconLightbulb, IconQuote, IconVideo, IconLock, IconMessage, IconSettings } from './Icon';
 import TeamOfTheDay from './TeamOfTheDay';
 import PublicGamesDisplay from './PublicGamesDisplay';
+import LeagueSchedule from './LeagueSchedule';
 
 interface DashboardProps {
     appData: AppData;
@@ -454,6 +455,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 results={gameResults[currentDay]?.[courtKeys[0]]}
               />
 
+              <LeagueSchedule leagueConfig={leagueConfig} />
               <LinksAndShare leagueTitle={leagueConfig.title} />
             </main>
           </div>
@@ -607,6 +609,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </a>
                 </div>
           </div>
+          <LeagueSchedule leagueConfig={leagueConfig} />
         </main>
       </div>
       {printableContent && (
