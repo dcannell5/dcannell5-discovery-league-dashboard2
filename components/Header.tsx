@@ -14,7 +14,6 @@ interface HeaderProps {
 
 const roleTextMap: Record<UserState['role'], string> = {
     SUPER_ADMIN: 'Super Admin',
-    REFEREE: 'Referee',
     NONE: ''
 };
 
@@ -27,7 +26,7 @@ const Header: React.FC<HeaderProps> = ({ title, userState, onLoginClick, onLogou
                     <div className="flex items-center gap-2 text-sm bg-gray-700/50 px-3 py-1.5 rounded-lg">
                         <IconUserCheck className="w-4 h-4 text-green-400" />
                         <span className="text-gray-300 font-semibold">
-                            {userState.role === 'REFEREE' ? `Referee (${userState.court})` : roleTextMap[userState.role]}
+                            {roleTextMap[userState.role]}
                         </span>
                     </div>
                      {userState.role === 'SUPER_ADMIN' && onDeleteLeague && onSwitchLeague && (

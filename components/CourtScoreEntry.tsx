@@ -16,7 +16,6 @@ interface CourtScoreEntryProps {
     attendanceForDay?: DailyAttendance;
     onResultChange: (gameIndex: number, result: GameResult) => void;
     onPlayerMove: (gameIndex: number, playerId: number, fromTeam: 'teamA' | 'teamB') => void;
-    onSaveRefereeNote: (playerId: number, note: string, day: number) => void;
     onPrintCourt: (courtTitle: string, day: number) => void;
     userState: UserState;
     isDayLocked: boolean;
@@ -33,7 +32,7 @@ const courtBorderColors = [
 ];
 
 const CourtScoreEntry: React.FC<CourtScoreEntryProps> = ({ 
-    courtTitle, courtIndex, currentDay, matchups, results, onResultChange, onPlayerMove, onSaveRefereeNote, userState,
+    courtTitle, courtIndex, currentDay, matchups, results, onResultChange, onPlayerMove, userState,
     isDayLocked, isSwapMode, playerToSwap, onPlayerSelectForSwap, attendanceForDay, toggleSwapMode, onPrintCourt
 }) => {
     const borderColor = courtBorderColors[courtIndex % courtBorderColors.length];
@@ -86,7 +85,6 @@ const CourtScoreEntry: React.FC<CourtScoreEntryProps> = ({
                         attendanceForDay={attendanceForDay}
                         onResultChange={onResultChange}
                         onPlayerMove={(playerId, fromTeam) => onPlayerMove(index, playerId, fromTeam)}
-                        onSaveRefereeNote={onSaveRefereeNote}
                         userState={userState}
                         isDayLocked={isDayLocked}
                         isSwapMode={isSwapMode}

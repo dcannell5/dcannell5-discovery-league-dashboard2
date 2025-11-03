@@ -14,7 +14,7 @@ interface DaySelectorProps {
   realCurrentLeagueDay: number;
 }
 
-const DaySelector: React.FC<DaySelectorProps> = ({ currentDay, totalDays, daySchedules, lockedDays, onDayChange, userRole, realCurrentLeagueDay }) => {
+const DaySelector: React.FC<DaySelectorProps> = ({ currentDay, totalDays, daySchedules, lockedDays, onDayChange }) => {
     
     const formatSchedule = (dateString?: string) => {
         if (!dateString) return null;
@@ -29,7 +29,6 @@ const DaySelector: React.FC<DaySelectorProps> = ({ currentDay, totalDays, daySch
     return (
     <div className="flex flex-wrap justify-center gap-2 mt-4">
       {Array.from({ length: totalDays }, (_, i) => i + 1).map(day => {
-        const isLockedForReferee = userRole === 'REFEREE' && day !== realCurrentLeagueDay;
         const schedule = formatSchedule(daySchedules?.[day]);
         const isLocked = lockedDays?.[day] || false;
         
@@ -37,7 +36,6 @@ const DaySelector: React.FC<DaySelectorProps> = ({ currentDay, totalDays, daySch
           <button
             key={day}
             onClick={() => onDayChange(day)}
-            disabled={isLockedForReferee}
             className={`px-3 py-2 text-sm font-bold rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 focus:ring-offset-gray-900 flex flex-col items-center
               ${currentDay === day 
                 ? 'bg-yellow-500 text-gray-900 shadow-lg' 
@@ -45,9 +43,7 @@ const DaySelector: React.FC<DaySelectorProps> = ({ currentDay, totalDays, daySch
                 ? 'bg-gray-600/50 text-gray-300' 
                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
               }
-              ${isLockedForReferee ? 'opacity-75 cursor-not-allowed' : ''}
             `}
-            aria-disabled={isLockedForReferee}
           >
             <span className="flex items-center gap-1.5">
                 {isLocked && <IconLock className="w-3 h-3 text-red-400"/>}

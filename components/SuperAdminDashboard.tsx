@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import type { AppData, ProjectLogEntry, SystemLog } from '../types';
+// FIX: Import LeagueConfig to use in type annotation
+import type { AppData, ProjectLogEntry, SystemLog, LeagueConfig } from '../types';
 import { IconLayoutDashboard, IconUsersGroup, IconBriefcase, IconShieldCheck, IconShieldExclamation, IconRefresh, IconLogout, IconUserCheck, IconUsers, IconChevronDown, IconClipboard, IconClipboardCheck, IconLogin } from './Icon';
 import ProjectJournalPanel from './ProjectJournalPanel';
 import { logoUrl } from '../assets/logo';
@@ -158,8 +159,9 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ appData, onLo
     
     const totalLeagues = Object.keys(appData.leagues || {}).length;
 
+    // FIX: Explicitly type `league` parameter to fix type inference issue where it was `unknown`.
     const totalPlayers = Object.values(appData.leagues || {}).reduce(
-      (sum, league) => sum + league.players.length,
+      (sum, league: Omit<LeagueConfig, 'id'>) => sum + league.players.length,
       0
     );
     

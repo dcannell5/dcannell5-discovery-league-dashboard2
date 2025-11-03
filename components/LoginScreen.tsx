@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { IconVolleyball } from './Icon';
 
@@ -37,7 +38,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, error, onClose }) =>
               id="access-code"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              placeholder="e.g., PLYR-1-JANE"
+              placeholder="Enter access code"
               className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-center text-lg tracking-wider uppercase focus:outline-none focus:ring-2 focus:ring-yellow-400"
               autoFocus
             />
@@ -57,9 +58,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, error, onClose }) =>
         <details className="text-left text-xs text-gray-400 mt-6 bg-gray-900/50 p-3 rounded-lg">
             <summary className="cursor-pointer font-semibold hover:text-white">Access Level Information</summary>
             <div className="mt-2 space-y-2">
-                <p><strong className="text-gray-300">Players/Parents:</strong> Use the personal code provided by your league admin to view and edit your profile information.</p>
-                <p><strong className="text-gray-300">Referees:</strong> Use the daily code to enter scores for the current day's games. Cannot edit a score once submitted.</p>
-                <p><strong className="text-gray-300">Super Admin:</strong> Has full control to edit scores, manage settings, and view access codes. Uses a permanent code.</p>
+                <p><strong className="text-gray-300">Public View:</strong> Anyone can view league standings and schedules without logging in.</p>
+                <p><strong className="text-gray-300">Super Admin:</strong> Has full control to create events, edit scores, and manage all settings. Uses a permanent access code.</p>
             </div>
         </details>
       </div>

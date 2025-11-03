@@ -10,20 +10,6 @@ export const SUPER_ADMIN_CODE = 'DISCOVERY2025';
 export const LEAGUE_START_DATE = new Date('2025-07-01T00:00:00Z');
 
 /**
- * Generates a daily access code for a specific court referee.
- * @param date The current date.
- * @param courtName The name of the court.
- * @returns A string in the format 'REF-[COURT_ABBR]-YYYYMMDD'.
- */
-export function getRefereeCodeForCourt(date: Date, courtName: string): string {
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    const courtAbbr = courtName.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-    return `REF-${courtAbbr}-${year}${month}${day}`;
-}
-
-/**
  * Calculates the current active day of the league.
  * It prioritizes the explicitly set schedule, finding the most recent past or current day.
  * If no schedule is set, it falls back to a default progression based on the league type:

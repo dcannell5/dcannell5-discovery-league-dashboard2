@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import type { Player, AllDailyResults, GameResult, UserState, AllDailyMatchups, AllDailyAttendance, LeagueConfig, CourtResults, CoachingTip, AdminFeedback, AppData } from '../types';
+import type { Player, AllDailyResults, GameResult, UserState, AllDailyMatchups, AllDailyAttendance, LeagueConfig, CourtResults, CoachingTip, AppData } from '../types';
 import { generateCoachingTip } from '../services/geminiService';
 import { generateDailyMatchups, getAllCourtNames } from '../utils/leagueLogic';
 import { getActiveDay } from '../utils/auth';
@@ -28,8 +28,6 @@ interface DashboardProps {
     onSwitchLeague: () => void;
     onAnnouncementsSave: (newText: string) => void;
     onScheduleSave: (newSchedules: Record<number, string>) => void;
-    onSaveRefereeNote: (playerId: number, note: string, day: number) => void;
-    onSaveAdminFeedback: (feedbackText: string) => void;
     onToggleDayLock: (day: number) => void;
     gameResults: AllDailyResults;
     setGameResults: React.Dispatch<React.SetStateAction<AllDailyResults>>;
@@ -37,7 +35,6 @@ interface DashboardProps {
     setAllMatchups: React.Dispatch<React.SetStateAction<AllDailyMatchups>>;
     allAttendance: AllDailyAttendance;
     setAllAttendance: React.Dispatch<React.SetStateAction<AllDailyAttendance>>;
-    allAdminFeedback: AdminFeedback[];
     teamOfTheDay: Record<number, { teamPlayerIds: number[], summary: string }>;
     setTeamOfTheDay: React.Dispatch<React.SetStateAction<Record<number, { teamPlayerIds: number[], summary: string }>>>;
 }
@@ -53,11 +50,9 @@ const InfoCard: React.FC<{icon: React.ReactNode, title: string, children: React.
 );
 
 const Dashboard: React.FC<DashboardProps> = ({
-    appData, leagueConfig, userState, onLoginClick, onLogout, onDeleteLeague, onSwitchLeague, onAnnouncementsSave, onScheduleSave, onSaveRefereeNote,
-    onSaveAdminFeedback,
+    appData, leagueConfig, userState, onLoginClick, onLogout, onDeleteLeague, onSwitchLeague, onAnnouncementsSave, onScheduleSave,
     onToggleDayLock,
     gameResults, setGameResults, allMatchups, setAllMatchups, allAttendance, setAllAttendance,
-    allAdminFeedback,
     teamOfTheDay, setTeamOfTheDay
 }) => {
   const [currentDay, setCurrentDay] = useState<number>(1);
@@ -397,7 +392,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                     appData={appData}
                     leagueConfig={leagueConfig}
                     onScheduleSave={onScheduleSave}
-                    allAdminFeedback={allAdminFeedback}
                 />
             </main>
         </div>
@@ -535,8 +529,6 @@ const Dashboard: React.FC<DashboardProps> = ({
               onGameResultChange={(court, gameIndex, result) => handleGameResultChange(currentDay, court, gameIndex, result)}
               onAttendanceChange={(playerId, gameIndex, isPresent) => handleAttendanceChange(currentDay, playerId, gameIndex, isPresent)}
               onPlayerMove={(court, gameIndex, playerId, fromTeam) => handlePlayerMoveInTeam(currentDay, court, gameIndex, playerId, fromTeam)}
-              onSaveRefereeNote={onSaveRefereeNote}
-              onSaveAdminFeedback={onSaveAdminFeedback}
               onToggleDayLock={onToggleDayLock}
               onPrintCourt={handlePrintCourt}
               isDayLocked={isDayLocked}
@@ -549,7 +541,6 @@ const Dashboard: React.FC<DashboardProps> = ({
 
           <div className="my-8 p-6 bg-gray-800/50 rounded-2xl shadow-2xl border border-gray-700">
             <h2 className="text-2xl font-bold text-center text-yellow-400 mb-4">Coach's Playbook</h2>
-              {/* Fix: This check is redundant because userState.role is guaranteed not to be 'NONE' in this render path. */}
               <div className="text-center mb-6">
                   <button 
                     onClick={handleGenerateCoachingTip}
@@ -583,7 +574,6 @@ const Dashboard: React.FC<DashboardProps> = ({
               }
               { !coachingTip && !isLoadingCoachingTip && !coachingTipError && (
                    <p className="text-center text-gray-500 py-8">
-                    {/* Fix: This check is redundant because userState.role is guaranteed not to be 'NONE' in this render path. */}
                     {"Click the button to get your playbook tips!"}
                   </p>
               )}
@@ -592,7 +582,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         <IconLock className="w-8 h-8 text-yellow-400 mt-1 shrink-0"/>
                         <div>
                             <h4 className="font-bold text-yellow-400">Did You Know?</h4>
-                            <p className="text-gray-300">Referees and Admins can log in using their assigned codes to manage scores and league settings.</p>
+                            <p className="text-gray-300">Only the Super Admin can log in to manage scores and league settings.</p>
                         </div>
                     </div>
                     <a href="https://www.youtube.com/@darrencannell/videos" target="_blank" rel="noopener noreferrer" className="bg-gray-700/50 p-4 rounded-lg flex items-start gap-3 hover:bg-gray-700 transition-colors">

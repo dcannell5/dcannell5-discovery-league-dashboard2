@@ -1,8 +1,7 @@
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, RefereeNote, UpcomingEvent, AdminFeedback, AiMessage, ProjectLogEntry, SaveStatus, SystemLog } from './types';
-import { SUPER_ADMIN_CODE, getRefereeCodeForCourt } from './utils/auth';
-import { getAllCourtNames } from './utils/leagueLogic';
+import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, UpcomingEvent, AiMessage, ProjectLogEntry, SaveStatus, SystemLog } from './types';
+import { SUPER_ADMIN_CODE } from './utils/auth';
 import SetupScreen from './components/SetupScreen';
 import Dashboard from './components/Dashboard';
 import LoginScreen from './components/LoginScreen';
@@ -444,8 +443,6 @@ The application code is designed to automatically use these variables. If they a
             dailyResults: { [presetLeagueId]: dailyResults },
             allDailyMatchups: { [presetLeagueId]: matchups },
             allDailyAttendance: { [presetLeagueId]: {} },
-            allRefereeNotes: { [presetLeagueId]: {} },
-            allAdminFeedback: { [presetLeagueId]: [] },
             teamOfTheDay: { [presetLeagueId]: {} },
             projectLogs: appData?.projectLogs || [], // Persist logs across sessions
             systemLogs: appData?.systemLogs || [], // Persist logs
@@ -465,13 +462,11 @@ The application code is designed to automatically use these variables. If they a
   }, [appData, activeLeagueId]);
   
   const activeDataSlices = useMemo(() => {
-    if (!appData || !activeLeagueId) return { dailyResults: {}, allDailyMatchups: {}, allDailyAttendance: {}, allRefereeNotes: {}, allAdminFeedback: [], teamOfTheDay: {} };
+    if (!appData || !activeLeagueId) return { dailyResults: {}, allDailyMatchups: {}, allDailyAttendance: {}, teamOfTheDay: {} };
     return {
       dailyResults: appData.dailyResults[activeLeagueId] || {},
       allDailyMatchups: appData.allDailyMatchups[activeLeagueId] || {},
       allDailyAttendance: appData.allDailyAttendance[activeLeagueId] || {},
-      allRefereeNotes: appData.allRefereeNotes[activeLeagueId] || {},
-      allAdminFeedback: appData.allAdminFeedback?.[activeLeagueId] || [],
       teamOfTheDay: appData.teamOfTheDay?.[activeLeagueId] || {},
     };
   }, [appData, activeLeagueId]);
@@ -483,11 +478,11 @@ The application code is designed to automatically use these variables. If they a
         
         const leagueDataKeys = [
             'dailyResults', 'allDailyMatchups', 'allDailyAttendance', 
-            'allRefereeNotes', 'teamOfTheDay', 'allAdminFeedback'
+            'teamOfTheDay'
         ] as const;
         
         leagueDataKeys.forEach(key => {
-            const initialValue = (key === 'allAdminFeedback') ? [] : {};
+            const initialValue = {};
             (newState as any)[key] = { ...((newState[key] && typeof newState[key] === 'object' && newState[key] !== null) ? newState[key] : {}), [newLeagueId]: initialValue };
         });
         
@@ -552,23 +547,8 @@ The application code is designed to automatically use these variables. If they a
         return;
     }
     
-    if (appData?.leagues) {
-        for (const leagueId in appData.leagues) {
-            const leagueConfig = { ...appData.leagues[leagueId], id: leagueId };
-
-            const courtNames = getAllCourtNames(leagueConfig);
-            for (const courtName of courtNames) {
-                if (upperCaseCode === getRefereeCodeForCourt(new Date(), courtName)) {
-                    setUserState({ role: 'REFEREE', court: courtName });
-                    handleSetActiveLeagueId(leagueId);
-                    setShowLoginModal(false);
-                    return;
-                }
-            }
-        }
-    }
     setAuthError('Invalid access code. Please try again.');
-}, [appData]);
+  }, []);
   
   const handleAnnouncementsSave = useCallback((newAnnouncements: string) => {
       if (!activeLeagueId) return;
@@ -594,7 +574,7 @@ The application code is designed to automatically use these variables. If they a
 
         const keysToDeleteFrom = [
           'leagues', 'dailyResults', 'allDailyMatchups', 'allDailyAttendance', 
-          'allRefereeNotes', 'allAdminFeedback', 'teamOfTheDay'
+          'teamOfTheDay'
         ] as const;
 
         for (const key of keysToDeleteFrom) {
@@ -633,38 +613,6 @@ The application code is designed to automatically use these variables. If they a
   const setAllDailyAttendance = createActiveLeagueSetter<AllDailyAttendance>('allDailyAttendance');
   const setTeamOfTheDay = createActiveLeagueSetter<Record<number, { teamPlayerIds: number[], summary: string }>>('teamOfTheDay');
   
-  const handleSaveRefereeNote = useCallback((playerId: number, note: string, day: number) => {
-    if (!activeLeagueId || userState.role !== 'REFEREE') return;
-    const newNote: RefereeNote = { note, day, court: userState.court, date: new Date().toISOString() };
-    updateAppData(prev => {
-        const currentNotes = prev.allRefereeNotes[activeLeagueId] || {};
-        const playerNotes = currentNotes[playerId] || [];
-        return {
-            ...prev,
-            allRefereeNotes: { ...prev.allRefereeNotes, [activeLeagueId]: { ...currentNotes, [playerId]: [...playerNotes, newNote] } }
-        };
-    });
-  }, [activeLeagueId, updateAppData, userState]);
-  
-  const handleSaveAdminFeedback = useCallback((feedbackText: string) => {
-    if (!activeLeagueId || userState.role !== 'REFEREE') return;
-    const newFeedback: AdminFeedback = {
-      id: `feedback-${Date.now()}`,
-      feedbackText,
-      submittedBy: { role: 'REFEREE', court: userState.court },
-      submittedAt: new Date().toISOString(),
-    };
-    updateAppData(prev => {
-        const allFeedback = prev.allAdminFeedback || {};
-        const currentFeedback = allFeedback[activeLeagueId] || [];
-        const newAllFeedback = {
-            ...allFeedback,
-            [activeLeagueId]: [...currentFeedback, newFeedback]
-        };
-        return { ...prev, allAdminFeedback: newAllFeedback };
-    });
-  }, [activeLeagueId, updateAppData, userState]);
-
   const handleScheduleSave = useCallback((newSchedules: Record<number, string>) => {
     if (!activeLeagueId) return;
     updateAppData(prev => {
@@ -820,8 +768,6 @@ The application code is designed to automatically use these variables. If they a
           onSwitchLeague={() => handleSetActiveLeagueId(null)}
           onAnnouncementsSave={handleAnnouncementsSave}
           onScheduleSave={handleScheduleSave}
-          onSaveRefereeNote={handleSaveRefereeNote}
-          onSaveAdminFeedback={handleSaveAdminFeedback}
           onToggleDayLock={handleToggleDayLock}
           gameResults={activeDataSlices.dailyResults}
           setGameResults={setDailyResults}
@@ -829,7 +775,6 @@ The application code is designed to automatically use these variables. If they a
           setAllMatchups={setAllDailyMatchups}
           allAttendance={activeDataSlices.allDailyAttendance}
           setAllAttendance={setAllDailyAttendance}
-          allAdminFeedback={activeDataSlices.allAdminFeedback}
           teamOfTheDay={activeDataSlices.teamOfTheDay}
           setTeamOfTheDay={setTeamOfTheDay}
       />;

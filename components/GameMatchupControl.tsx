@@ -2,7 +2,7 @@
 
 import React from 'react';
 import type { GameResult, UserState, GameMatchup, Player, DailyAttendance } from '../types';
-import { IconArrowsRightLeft, IconMessage } from './Icon';
+import { IconArrowsRightLeft } from './Icon';
 import GameControl from './GameControl';
 
 type PlayerToSwap = { player: Player; gameIndex: number };
@@ -15,7 +15,6 @@ interface GameMatchupControlProps {
     attendanceForDay?: DailyAttendance;
     onResultChange: (gameIndex: number, result: GameResult) => void;
     onPlayerMove: (playerId: number, fromTeam: 'teamA' | 'teamB') => void;
-    onSaveRefereeNote: (playerId: number, note: string, day: number) => void;
     userState: UserState;
     isDayLocked: boolean;
     isSwapMode: boolean;
@@ -31,24 +30,14 @@ const TeamList: React.FC<{
     gameIndex: number,
     attendanceForDay?: DailyAttendance;
     onPlayerMove: (playerId: number, fromTeam: 'teamA' | 'teamB') => void,
-    onSaveRefereeNote: (playerId: number, note: string, day: number) => void,
     userState: UserState;
     isDayLocked: boolean;
     isSwapMode: boolean;
     playerToSwap: PlayerToSwap | null;
     onPlayerSelectForSwap: (player: Player, gameIndex: number) => void;
-}> = ({team, title, teamKey, currentDay, gameIndex, onPlayerMove, onSaveRefereeNote, userState, isDayLocked, isSwapMode, playerToSwap, onPlayerSelectForSwap, attendanceForDay}) => {
-    const canEdit = userState.role === 'REFEREE' || userState.role === 'SUPER_ADMIN';
-    const isReferee = userState.role === 'REFEREE';
+}> = ({team, title, teamKey, gameIndex, onPlayerMove, userState, isDayLocked, isSwapMode, playerToSwap, onPlayerSelectForSwap, attendanceForDay}) => {
+    const canEdit = userState.role === 'SUPER_ADMIN';
 
-    const handleAddNote = (playerId: number, playerName: string) => {
-        const note = prompt(`Enter a private note for ${playerName} (visible only to admins):`);
-        if(note) {
-            onSaveRefereeNote(playerId, note, currentDay);
-            alert(`Note for ${playerName} saved.`);
-        }
-    };
-    
     const handlePlayerClick = (player: Player) => {
       if (isSwapMode && userState.role === 'SUPER_ADMIN' && !isDayLocked) {
         onPlayerSelectForSwap(player, gameIndex);
@@ -75,15 +64,6 @@ const TeamList: React.FC<{
                 <li key={player.id} className={liClasses} onClick={() => isTargetable && handlePlayerClick(player)}>
                     <span className="flex-1 truncate">{player.name}</span>
                     <div className="flex items-center">
-                        {isReferee && (
-                             <button 
-                                onClick={(e) => { e.stopPropagation(); handleAddNote(player.id, player.name); }} 
-                                className="ml-1 text-gray-500 hover:text-blue-400 transition-colors"
-                                aria-label={`Add note for ${player.name}`}
-                            >
-                                <IconMessage className="w-3 h-3" />
-                            </button>
-                        )}
                         {canEdit && !isSwapMode && !isDayLocked && (
                             <button 
                                 onClick={(e) => { e.stopPropagation(); onPlayerMove(player.id, teamKey); } } 
@@ -102,10 +82,10 @@ const TeamList: React.FC<{
 };
 
 const GameMatchupControl: React.FC<GameMatchupControlProps> = ({ 
-    gameIndex, currentDay, matchup, result, onResultChange, onPlayerMove, onSaveRefereeNote, userState,
+    gameIndex, currentDay, matchup, result, onResultChange, onPlayerMove, userState,
     isDayLocked, isSwapMode, playerToSwap, onPlayerSelectForSwap, attendanceForDay
 }) => {
-    const canEdit = userState.role === 'REFEREE' || userState.role === 'SUPER_ADMIN';
+    const canEdit = userState.role === 'SUPER_ADMIN';
 
     const handlePlayerMoveInTeam = (playerId: number, fromTeam: 'teamA' | 'teamB') => {
         onPlayerMove(playerId, fromTeam);
@@ -127,7 +107,6 @@ const GameMatchupControl: React.FC<GameMatchupControlProps> = ({
                     gameIndex={gameIndex}
                     attendanceForDay={attendanceForDay}
                     onPlayerMove={handlePlayerMoveInTeam}
-                    onSaveRefereeNote={onSaveRefereeNote}
                     userState={userState}
                     isDayLocked={isDayLocked}
                     isSwapMode={isSwapMode}
@@ -142,7 +121,6 @@ const GameMatchupControl: React.FC<GameMatchupControlProps> = ({
                     gameIndex={gameIndex}
                     attendanceForDay={attendanceForDay}
                     onPlayerMove={handlePlayerMoveInTeam}
-                    onSaveRefereeNote={onSaveRefereeNote}
                     userState={userState}
                     isDayLocked={isDayLocked}
                     isSwapMode={isSwapMode}

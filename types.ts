@@ -41,8 +41,7 @@ export type AllDailyMatchups = Record<number, DailyCourtMatchups>;
 // --- User and Auth Types ---
 export type UserState = 
   | { role: 'NONE' }
-  | { role: 'SUPER_ADMIN' }
-  | { role: 'REFEREE', court: string };
+  | { role: 'SUPER_ADMIN' };
 
 // --- Attendance Types ---
 export type PlayerDailyAttendance = boolean[];
@@ -71,26 +70,6 @@ export interface LeagueConfig {
 
     // Optional seeded stats for import
     seededStats?: Record<number, Partial<PlayerWithStats>>;
-}
-
-// --- Referee Notes Types ---
-export interface RefereeNote {
-  note: string;
-  day: number;
-  court: string;
-  date: string;
-}
-export type AllRefereeNotes = Record<number, RefereeNote[]>; // Keyed by Player ID
-
-// --- Admin Feedback Types ---
-export interface AdminFeedback {
-  id: string;
-  feedbackText: string;
-  submittedBy: {
-    role: 'REFEREE';
-    court: string;
-  };
-  submittedAt: string;
 }
 
 // --- AI Service Types ---
@@ -151,11 +130,9 @@ export interface AppData {
     dailyResults: Record<string, AllDailyResults>;
     allDailyMatchups: Record<string, AllDailyMatchups>;
     allDailyAttendance: Record<string, AllDailyAttendance>;
-    allRefereeNotes: Record<string, AllRefereeNotes>;
-    allAdminFeedback?: Record<string, AdminFeedback[]>; // leagueId -> referee feedback[]
     projectLogs?: ProjectLogEntry[]; // Global project logs for the build blog
     systemLogs?: SystemLog[]; // Global system logs for admin diagnostics
-    teamOfTheDay?: Record<string, Record<number, { teamPlayerIds: number[]; summary: string }>>; // leagueId -> day -> Team of the Day
+    teamOfTheDay?: Record<string, Record<number, { teamPlayerIds: number[], summary: string }>>; // leagueId -> day -> Team of the Day
     activeLeagueId?: string | null;
     upcomingEvent?: UpcomingEvent;
 }

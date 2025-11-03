@@ -38,12 +38,9 @@ const GameControl: React.FC<GameControlProps> = ({ gameIndex, result, onResultCh
         }
     };
     
-    // Referees can enter a score once. After both scores are submitted, it's locked for them.
     // Super Admins can always edit, unless the day is locked.
-    const isComplete = result !== 'unplayed' && result.teamAScore !== null && result.teamBScore !== null;
-    const isLockedForReferee = userRole === 'REFEREE' && isComplete;
-    const canEdit = userRole === 'SUPER_ADMIN' || userRole === 'REFEREE';
-    const isDisabled = !canEdit || isLockedForReferee || isDayLocked;
+    const canEdit = userRole === 'SUPER_ADMIN';
+    const isDisabled = !canEdit || isDayLocked;
 
     const inputClasses = "w-full text-center bg-gray-900/50 rounded-md py-2 px-1 text-white font-bold text-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed";
 
