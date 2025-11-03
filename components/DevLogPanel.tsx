@@ -1,1 +1,0 @@
-// This component is unused and can be safely deleted. ProjectJournalPanel.tsx is used instead.

@@ -519,15 +519,10 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           {isDayLocked && (
-            <TeamOfTheDay
-                day={currentDay}
-                players={leagueConfig.players}
-                teamData={teamOfTheDay[currentDay]}
-                userRole={userState.role}
-                onGenerate={handleGenerateTeamOfTheDay}
-                isLoading={isGeneratingTeam}
-                error={generationError}
-            />
+            <div className="my-6 p-4 bg-red-900/50 border border-red-500 text-red-200 rounded-lg text-center flex items-center justify-center gap-3">
+                <IconLock className="w-5 h-5" />
+                <p className="font-semibold">Day {currentDay} is locked. All scores are final and cannot be edited.</p>
+            </div>
           )}
 
           <ScoreEntryDashboard 
