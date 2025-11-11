@@ -1,5 +1,5 @@
 {
-  "name": "Summer League 2025 Dashboard",
+  "name": "League 2025 Dashboard",
   "description": "A flexible and dynamic league management tool. Allows for custom setup of league title, weeks, and players. Features public-facing read-only results, an admin-editable announcements board, and role-based access for referees and administrators.",
   "requestFramePermissions": [],
   "prompt": ""

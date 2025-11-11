@@ -1,12 +1,5 @@
 
 
-
-
-
-
-
-
-
 import React, { useRef } from 'react';
 import type { AppData } from '../types';
 import { IconUpload, IconDownload, IconClipboardList, IconRefresh } from './Icon';

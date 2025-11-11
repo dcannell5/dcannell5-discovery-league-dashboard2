@@ -1,6 +1,6 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-// FIX: Import LeagueConfig to use in type annotation
 import type { AppData, ProjectLogEntry, SystemLog, LeagueConfig } from '../types';
 import { IconLayoutDashboard, IconUsersGroup, IconBriefcase, IconShieldCheck, IconShieldExclamation, IconRefresh, IconLogout, IconUserCheck, IconUsers, IconChevronDown, IconClipboard, IconClipboardCheck, IconLogin } from './Icon';
 import ProjectJournalPanel from './ProjectJournalPanel';
@@ -20,7 +20,6 @@ interface SuperAdminDashboardProps {
 type SystemStatusState = 'OK' | 'ERROR' | 'CHECKING';
 type SystemStatus = {
     kvDatabase: SystemStatusState;
-    blobStorage: SystemStatusState;
     aiService: SystemStatusState;
 };
 
@@ -152,20 +151,19 @@ type HealthCheckData = {
 };
 
 const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ appData, onLogout, onNavigateToLeagues, projectLogs, onSaveProjectLog, systemLogs, addSystemLog }) => {
-  const [systemStatus, setSystemStatus] = useState<SystemStatus>({ kvDatabase: 'CHECKING', blobStorage: 'CHECKING', aiService: 'CHECKING' });
+  const [systemStatus, setSystemStatus] = useState<SystemStatus>({ kvDatabase: 'CHECKING', aiService: 'CHECKING' });
 
   const platformStats = useMemo(() => {
     if (!appData) return { totalLeagues: 0, totalPlayers: 0, totalLogins: 0 };
     
     const totalLeagues = Object.keys(appData.leagues || {}).length;
 
-    // FIX: Explicitly type `league` parameter to fix type inference issue where it was `unknown`.
     const totalPlayers = Object.values(appData.leagues || {}).reduce(
-      (sum, league: Omit<LeagueConfig, 'id'>) => sum + league.players.length,
+      (sum: number, league: Omit<LeagueConfig, 'id'>) => sum + league.players.length,
       0
     );
     
-    const totalLogins = 0; // loginCounters has been removed.
+    const totalLogins = 0; // This metric is not tracked
     
     return { totalLeagues, totalPlayers, totalLogins };
   }, [appData]);
@@ -176,10 +174,6 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ appData, onLo
           if (details.includes('authentication') || details.includes('Unauthorized')) return "Authentication with Vercel KV failed. Please verify that the KV_REST_API_URL and KV_REST_API_TOKEN environment variables are correctly set in your project's Vercel settings.";
           return `The database at elite-academy-kv might be experiencing issues. ${genericSuggestion}`;
       }
-      if (service === 'blobStorage') {
-          if (details.includes('configured')) return "The BLOB_READ_WRITE_TOKEN environment variable is missing. Please connect a Vercel Blob store to your project via the Vercel dashboard integrations tab.";
-          return `The blob store at discovery-league-dashboard-blob might be experiencing issues. ${genericSuggestion}`;
-      }
       if (service === 'aiService') {
           return "The API_KEY environment variable for the Gemini AI service is missing. Please add it to your project's Vercel settings to enable AI features.";
       }
@@ -187,7 +181,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ appData, onLo
   };
 
   const checkHealth = useCallback(async () => {
-    setSystemStatus({ kvDatabase: 'CHECKING', blobStorage: 'CHECKING', aiService: 'CHECKING' });
+    setSystemStatus({ kvDatabase: 'CHECKING', aiService: 'CHECKING' });
     try {
         const response = await fetch('/api/system-health');
         const data: HealthCheckData = await response.json();
@@ -195,13 +189,11 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ appData, onLo
         if (response.ok) {
             setSystemStatus({
                 kvDatabase: data.kvDatabase.status,
-                blobStorage: data.blobStorage.status,
                 aiService: data.aiService.status,
             });
             
             const serviceNameMap: Record<string, string> = {
                 kvDatabase: 'KV Database',
-                blobStorage: 'Blob Storage',
                 aiService: 'AI Service'
             };
 
@@ -222,7 +214,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ appData, onLo
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.error("Failed to fetch system health:", errorMessage);
-        setSystemStatus({ kvDatabase: 'ERROR', blobStorage: 'ERROR', aiService: 'ERROR' });
+        setSystemStatus({ kvDatabase: 'ERROR', aiService: 'ERROR' });
         addSystemLog({ type: 'Health Check', status: 'Error', message: 'Could not run system health checks.', details: errorMessage, suggestion: "The health check API endpoint might be down or misconfigured. Check the server logs in Vercel for more details." });
     }
   }, [addSystemLog]);
@@ -273,17 +265,12 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ appData, onLo
                      <StatusIndicator 
                         status={systemStatus.kvDatabase} 
                         label="KV Database" 
-                        helpText="Performs a live read/write test to the Vercel KV database (elite-academy-kv). An error here means league data cannot be saved or loaded."
-                    />
-                    <StatusIndicator 
-                        status={systemStatus.blobStorage} 
-                        label="Blob Storage"
-                        helpText="Performs a live upload/delete test to Vercel Blob storage (discovery-league-dashboard-blob). An error here means player profile images cannot be uploaded or displayed."
+                        helpText="This service stores all persistent application data, including leagues, players, scores, and schedules. It checks for `LEAGUESTORAGE_KV_REST_API_URL` and `_TOKEN` server variables and performs a read/write test. **This service is critical for the app to function.** To fix, link a Vercel KV store named `leaguestorage` to your project and redeploy."
                     />
                      <StatusIndicator 
                         status={systemStatus.aiService} 
                         label="AI Service"
-                        helpText="Checks for the presence of the Gemini API key on the server. An error here means AI-powered features like the Coach's Playbook and AI Assistant will not work."
+                        helpText="This service powers all generative AI features, including the Coach's Playbook, AI Assistant, and Team of the Day generation. It checks for the `API_KEY` server variable for Gemini. **AI features will fail without it.** To fix, add this environment variable in your Vercel project settings and redeploy."
                     />
                      <button 
                         onClick={checkHealth}

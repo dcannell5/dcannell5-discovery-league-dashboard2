@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, UpcomingEvent, AiMessage, ProjectLogEntry, SaveStatus, SystemLog } from './types';
 import { SUPER_ADMIN_CODE } from './utils/auth';
@@ -13,6 +14,7 @@ import { IconVolleyball } from './components/Icon';
 import BlogPage from './components/BlogPage';
 import { presetData } from './data/presetSchedule';
 import SaveStatusIndicator from './components/SaveStatusIndicator';
+import { initialAppData } from './data/initialData';
 
 
 const SevereWarningModal: React.FC<{
@@ -81,7 +83,6 @@ const App: React.FC = () => {
     return null;
   });
   const [isLoading, setIsLoading] = useState<boolean>(!appData);
-  const [loadingError, setLoadingError] = useState<string | null>(null);
   const [userState, setUserState] = useState<UserState>({ role: 'NONE' });
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string>('');
@@ -151,7 +152,6 @@ const App: React.FC = () => {
       if (!appData) { // Only show full loading screen if no local cache
         setIsLoading(true);
       }
-      setLoadingError(null);
       try {
         const response = await fetch('/api/getData');
         const contentType = response.headers.get('content-type');
@@ -194,7 +194,7 @@ const App: React.FC = () => {
             setSaveStatus('error');
             addSystemLog({ type: 'Data Load', status: 'Error', message: 'Failed to sync with server. Using local data.', details: initialErrorMessage });
         } else {
-            // If we have no local data and API fails, show fatal error.
+            // If we have no local data and API fails, run health checks to get a detailed error.
             if (initialErrorMessage === "SERVER_CRASH") {
                 let baseMessage = "The application failed to start because the initial data load from `/api/getData` failed. This usually indicates a server configuration issue.";
                 initialErrorMessage = baseMessage;
@@ -281,11 +281,14 @@ The application cannot connect to its database. This is almost always caused by 
 The application code is designed to automatically use these variables. If they are missing or the KV store is not linked, all backend services will fail.`;
                 }
             }
-
-            setLoadingError(initialErrorMessage);
-            addSystemLog({ type: 'Data Load', status: 'Error', message: 'Failed to load application data from server.', details: initialErrorMessage });
-            setAppData(null);
+            
+            // Instead of showing a fatal error screen, load a default state so the app is usable.
+            console.warn("Server connection failed, initializing with a default empty state.", initialErrorMessage);
+            addSystemLog({ type: 'Data Load', status: 'Error', message: 'Failed to load application data from server. Initializing with default data.', details: initialErrorMessage });
+            setAppData(initialAppData);
             setSaveStatus('error');
+            // Use the detailed error message for the save status indicator.
+            setSaveError(initialErrorMessage);
         }
       } finally {
         setIsLoading(false);
@@ -719,18 +722,11 @@ The application code is designed to automatically use these variables. If they a
   }
 
   if (!appData) {
+    // This case should ideally not be hit if the loading logic correctly initializes appData.
+    // It's a fallback for any unexpected state where loading is done but data is null.
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-900 p-4">
-             <div className="text-center bg-gray-800/50 p-8 rounded-2xl shadow-2xl border border-red-500/50 max-w-3xl">
-                 <h2 className="text-2xl text-red-400 font-bold">Failed to Load Application Data</h2>
-                 <p className="text-gray-400 mt-2 mb-4">Could not retrieve league data from the server. Please try refreshing the page. If the problem persists, check the server logs or the details below.</p>
-                 {loadingError && (
-                    <div className="text-left bg-gray-900/70 p-4 rounded-lg mt-4 border border-gray-700">
-                        <h3 className="font-semibold text-yellow-400 mb-2">Error Details:</h3>
-                        <pre className="text-sm text-gray-300 whitespace-pre-wrap font-mono">{loadingError}</pre>
-                    </div>
-                 )}
-             </div>
+        <div className="flex items-center justify-center min-h-screen bg-gray-900">
+            <p className="text-xl text-gray-400">Initializing Application...</p>
         </div>
     );
   }

@@ -1,6 +1,6 @@
 
+
 import React from 'react';
-// FIX: Import GameMatchup to be able to use it as an explicit type.
 import type { DailyAttendance, DailyCourtMatchups, Player, GameMatchup } from '../types';
 import PlayerAttendanceRow from './PlayerAttendanceRow';
 
@@ -23,7 +23,6 @@ const AttendanceManager: React.FC<AttendanceManagerProps> = ({
 }) => {
     // Create a single, unified list of all players for the day.
     const allPlayersMap = new Map<number, Player>();
-    // FIX: Explicitly type `courtMatchups` to fix type inference issue where it was being inferred as 'unknown'.
     Object.values(matchupsForDay).forEach((courtMatchups: GameMatchup[]) => {
         courtMatchups.forEach(game => {
             [...game.teamA, ...game.teamB].forEach(player => {

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Player, AllDailyResults, GameResult, UserState, AllDailyMatchups, AllDailyAttendance, LeagueConfig, CourtResults, CoachingTip, AppData } from '../types';
 import { generateCoachingTip } from '../services/geminiService';
@@ -17,6 +18,7 @@ import { IconTrophy, IconLightbulb, IconQuote, IconVideo, IconLock, IconMessage,
 import TeamOfTheDay from './TeamOfTheDay';
 import PublicGamesDisplay from './PublicGamesDisplay';
 import LeagueSchedule from './LeagueSchedule';
+import FullPlayerRankings from './FullPlayerRankings';
 
 interface DashboardProps {
     appData: AppData;
@@ -56,6 +58,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     teamOfTheDay, setTeamOfTheDay
 }) => {
   const [currentDay, setCurrentDay] = useState<number>(1);
+  const [selectedCourt, setSelectedCourt] = useState<string | null>(null);
   const [coachingTip, setCoachingTip] = useState<CoachingTip | null>(null);
   const [isLoadingCoachingTip, setIsLoadingCoachingTip] = useState<boolean>(false);
   const [coachingTipError, setCoachingTipError] = useState<string>('');
@@ -68,11 +71,21 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const realCurrentLeagueDay = useMemo(() => getActiveDay(new Date(), leagueConfig), [leagueConfig]);
   const isDayLocked = !!leagueConfig.lockedDays?.[currentDay];
+  const courtKeys = useMemo(() => getAllCourtNames(leagueConfig), [leagueConfig]);
 
   useEffect(() => {
     // Set the initial current day based on the schedule for all users.
     setCurrentDay(realCurrentLeagueDay);
   }, [realCurrentLeagueDay]);
+
+  useEffect(() => {
+    // Set the initial court view for the public dashboard
+    if (courtKeys && courtKeys.length > 0) {
+        setSelectedCourt(courtKeys[0]);
+    } else {
+        setSelectedCourt(null);
+    }
+}, [courtKeys, currentDay]);
 
   // -- REFACTORED STATS CALCULATION --
   // Calculate stats for generating matchups (up to day before current)
@@ -93,7 +106,15 @@ const Dashboard: React.FC<DashboardProps> = ({
     currentDay
   );
 
-  const courtKeys = useMemo(() => getAllCourtNames(leagueConfig), [leagueConfig]);
+  
+  const dayHasResults = useMemo(() => {
+    const dayResults = gameResults[currentDay];
+    if (!dayResults) return false;
+    // Check if any game result has a score entered
+    return Object.values(dayResults).some((courtResults: CourtResults) =>
+        courtResults.some(result => result !== 'unplayed' && (result.teamAScore !== null || result.teamBScore !== null))
+    );
+  }, [gameResults, currentDay]);
 
   // Effect to generate matchups for the current day if they don't exist.
   useEffect(() => {
@@ -346,180 +367,151 @@ const Dashboard: React.FC<DashboardProps> = ({
             }
 
             const data = await response.json();
-            setTeamOfTheDay(prev => ({ ...prev, [currentDay]: data }));
+            setTeamOfTheDay(prev => ({
+                ...prev,
+                [currentDay]: data
+            }));
 
         } catch (error) {
-            const message = error instanceof Error ? error.message : 'An unknown error occurred.';
-            console.error("Failed to generate team of the day:", message);
-            setGenerationError(message);
+            console.error("Team of the day generation failed:", error);
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+            setGenerationError(errorMessage);
         } finally {
             setIsGeneratingTeam(false);
         }
     }, [currentDay, leagueConfig, gameResults, allMatchups, allAttendance, setTeamOfTheDay]);
 
   useEffect(() => {
-    const handleAfterPrint = () => {
-      setPrintableContent(null);
-    };
-
-    window.addEventListener('afterprint', handleAfterPrint);
-    
     if (printableContent) {
+      const timer = setTimeout(() => {
         window.print();
+        setPrintableContent(null);
+      }, 100);
+      return () => clearTimeout(timer);
     }
-
-    return () => {
-      window.removeEventListener('afterprint', handleAfterPrint);
-    };
   }, [printableContent]);
 
-  if (userState.role === 'SUPER_ADMIN' && showAdminPanel) {
-    return (
-        <div className="min-h-screen bg-gray-900 text-gray-100">
-            <main className="container mx-auto p-4 md:p-8">
-                <header className="flex justify-between items-center mb-8">
-                    <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-yellow-500">
-                        Admin Panel
-                    </h1>
-                    <button
-                        onClick={() => setShowAdminPanel(false)}
-                        className="text-sm font-semibold text-gray-300 hover:text-yellow-400 transition-colors"
-                    >
-                        &larr; Back to Dashboard
+  return (
+    <div className="flex items-start justify-center min-h-screen bg-gray-900 p-4 sm:p-6 md:p-8">
+      <div className="w-full max-w-5xl mx-auto">
+        <Header 
+          title={leagueConfig.title} 
+          userState={userState} 
+          onLoginClick={onLoginClick} 
+          onLogout={onLogout}
+          onDeleteLeague={onDeleteLeague}
+          onSwitchLeague={onSwitchLeague}
+        />
+        
+        <div className="text-center">
+            <h2 className="text-3xl font-bold text-white tracking-tight">
+                Standings
+                <span className="text-yellow-400">
+                   : Day {currentDay}{formatScheduledDate(leagueConfig.daySchedules?.[currentDay])}
+                </span>
+            </h2>
+             {realCurrentLeagueDay > currentDay && !dayHasResults && (
+                <p className="mt-2 text-sm text-blue-300 bg-blue-900/30 inline-block px-3 py-1 rounded-full">
+                   Results for Day {currentDay} have not been updated yet. Rankings shown are cumulative up to Day {currentDay - 1}.
+                </p>
+            )}
+             {realCurrentLeagueDay === currentDay && !dayHasResults && (
+                <p className="mt-2 text-sm text-blue-300 bg-blue-900/30 inline-block px-3 py-1 rounded-full">
+                   Scores for today are being updated live. Rankings shown are cumulative up to the end of yesterday.
+                </p>
+            )}
+            <DaySelector 
+                currentDay={currentDay}
+                totalDays={leagueConfig.totalDays}
+                daySchedules={leagueConfig.daySchedules}
+                lockedDays={leagueConfig.lockedDays}
+                onDayChange={setCurrentDay}
+                userRole={userState.role}
+                realCurrentLeagueDay={realCurrentLeagueDay}
+            />
+        </div>
+        
+        <Leaderboard players={sortedDisplayPlayers.slice(0, 3)} />
+
+        {userState.role !== 'SUPER_ADMIN' ? (
+          <>
+            <div className="my-8 p-6 bg-gray-800/50 rounded-2xl shadow-2xl border border-gray-700">
+                <h2 className="text-2xl font-bold text-center text-yellow-400 mb-6">Daily Game Results</h2>
+
+                {courtKeys.length > 0 ? (
+                    <>
+                        <div className="flex flex-wrap justify-center gap-2 mb-6">
+                            {courtKeys.map(courtKey => (
+                                <button
+                                    key={courtKey}
+                                    onClick={() => setSelectedCourt(courtKey)}
+                                    className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${
+                                        selectedCourt === courtKey
+                                            ? 'bg-yellow-500 text-gray-900'
+                                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                    }`}
+                                >
+                                    {courtKey}
+                                </button>
+                            ))}
+                        </div>
+
+                        {selectedCourt && allMatchups[currentDay]?.[selectedCourt] ? (
+                            <PublicGamesDisplay
+                                matchups={allMatchups[currentDay]?.[selectedCourt]}
+                                results={gameResults[currentDay]?.[selectedCourt]}
+                            />
+                        ) : (
+                            <p className="text-center text-gray-500 py-8">Matchups for this court are not yet available.</p>
+                        )}
+                    </>
+                ) : (
+                    <p className="text-center text-gray-500 py-8">Matchups for this day's games are not yet available.</p>
+                )}
+            </div>
+
+            {leagueConfig.leagueType === 'standard' ? (
+                <FullPlayerRankings players={sortedDisplayPlayers} />
+            ) : (
+                 <TeamOfTheDay
+                    day={currentDay}
+                    players={leagueConfig.players}
+                    teamData={teamOfTheDay[currentDay]}
+                    userRole={userState.role}
+                    onGenerate={handleGenerateTeamOfTheDay}
+                    isLoading={isGeneratingTeam}
+                    error={generationError}
+                />
+            )}
+            <Announcements text={leagueConfig.announcements} userRole={userState.role} onSave={onAnnouncementsSave} />
+            {Object.keys(leagueConfig.daySchedules || {}).length > 0 && <LeagueSchedule leagueConfig={leagueConfig} />}
+            <LinksAndShare leagueTitle={leagueConfig.title} />
+          </>
+        ) : (
+          <>
+            <div className="my-8 p-4 bg-gray-800/50 rounded-2xl border border-gray-700 flex flex-col sm:flex-row justify-center items-center gap-4 text-center">
+                <p className="text-lg text-white font-semibold">Admin Mode Activated</p>
+                <div className="flex gap-2">
+                    <button onClick={() => setShowAdminPanel(!showAdminPanel)} className="flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg bg-gray-700 hover:bg-gray-600">
+                        <IconSettings className="w-5 h-5" /> {showAdminPanel ? 'Hide' : 'Show'} Admin Panel
                     </button>
-                </header>
-                <AdminPanel
+                    {isDayLocked && (
+                        <div className="flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg bg-red-900/50 text-red-300">
+                            <IconLock className="w-5 h-5"/> Day {currentDay} is Locked
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {showAdminPanel && (
+                <AdminPanel 
                     appData={appData}
-                    leagueConfig={leagueConfig}
+                    leagueConfig={leagueConfig} 
                     onScheduleSave={onScheduleSave}
                 />
-            </main>
-        </div>
-    );
-  }
+            )}
 
-  // PUBLIC VIEW
-  if (userState.role === 'NONE') {
-    return (
-        <>
-         <div className="min-h-screen bg-gray-900 text-gray-100">
-            <main className="container mx-auto p-4 md:p-8">
-              <Header 
-                  title={leagueConfig.title} 
-                  userState={userState} 
-                  onLoginClick={onLoginClick} 
-                  onLogout={onLogout} 
-              />
-              <Announcements 
-                  text={leagueConfig.announcements}
-                  userRole={userState.role}
-                  onSave={onAnnouncementsSave}
-              />
-               <div className="my-8 p-6 bg-gray-800/50 rounded-2xl shadow-2xl border border-gray-700">
-                  <h2 className="text-2xl font-bold text-yellow-400 mb-4 flex items-center justify-center">
-                      <IconTrophy className="w-6 h-6 mr-3"/>
-                      Standings: Day {currentDay}
-                      <span className="text-lg text-gray-400 ml-2 font-normal">{formatScheduledDate(leagueConfig.daySchedules?.[currentDay])}</span>
-                  </h2>
-                  <DaySelector
-                      currentDay={currentDay}
-                      totalDays={leagueConfig.totalDays}
-                      daySchedules={leagueConfig.daySchedules}
-                      lockedDays={leagueConfig.lockedDays}
-                      onDayChange={setCurrentDay}
-                      userRole={userState.role}
-                      realCurrentLeagueDay={realCurrentLeagueDay}
-                  />
-                  <Leaderboard players={sortedDisplayPlayers.slice(0, 3)} />
-              </div>
-              
-              <TeamOfTheDay
-                day={currentDay}
-                players={leagueConfig.players}
-                teamData={teamOfTheDay[currentDay]}
-                userRole={userState.role}
-                onGenerate={handleGenerateTeamOfTheDay}
-                isLoading={isGeneratingTeam}
-                error={generationError}
-              />
-
-              <PublicGamesDisplay
-                courtTitle={courtKeys[0]}
-                matchups={allMatchups[currentDay]?.[courtKeys[0]]}
-                results={gameResults[currentDay]?.[courtKeys[0]]}
-              />
-
-              <LeagueSchedule leagueConfig={leagueConfig} />
-              <LinksAndShare leagueTitle={leagueConfig.title} />
-            </main>
-          </div>
-          {printableContent && (
-            <div className="printable">
-              {printableContent}
-            </div>
-          )}
-        </>
-    );
-  }
-
-  // ADMIN/REFEREE VIEW
-  return (
-    <>
-      <div className="min-h-screen bg-gray-900 text-gray-100">
-        <main className="container mx-auto p-4 md:p-8">
-          <Header 
-              title={leagueConfig.title} 
-              userState={userState} 
-              onLoginClick={onLoginClick} 
-              onLogout={onLogout} 
-              onDeleteLeague={onDeleteLeague}
-              onSwitchLeague={onSwitchLeague}
-          />
-          
-          <Announcements 
-              text={leagueConfig.announcements}
-              userRole={userState.role}
-              onSave={onAnnouncementsSave}
-          />
-
-          {userState.role === 'SUPER_ADMIN' && (
-            <div className="my-8 p-6 bg-gray-800/50 rounded-2xl shadow-xl border border-gray-700 text-center">
-                <button
-                    onClick={() => setShowAdminPanel(true)}
-                    className="px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-500 transition-all duration-300 flex items-center justify-center gap-2 mx-auto"
-                >
-                    <IconSettings className="w-5 h-5" />
-                    Open League Admin Panel
-                </button>
-                <p className="text-xs text-gray-500 mt-3">Manage schedules, access codes, and view feedback.</p>
-            </div>
-           )}
-
-          <div className="my-8 p-6 bg-gray-800/50 rounded-2xl shadow-2xl border border-gray-700">
-              <h2 className="text-2xl font-bold text-yellow-400 mb-4 flex items-center justify-center">
-                  <IconTrophy className="w-6 h-6 mr-3"/>
-                  Standings: Day {currentDay}
-                  <span className="text-lg text-gray-400 ml-2 font-normal">{formatScheduledDate(leagueConfig.daySchedules?.[currentDay])}</span>
-              </h2>
-              <DaySelector
-                  currentDay={currentDay}
-                  totalDays={leagueConfig.totalDays}
-                  daySchedules={leagueConfig.daySchedules}
-                  lockedDays={leagueConfig.lockedDays}
-                  onDayChange={setCurrentDay}
-                  userRole={userState.role}
-                  realCurrentLeagueDay={realCurrentLeagueDay}
-              />
-          </div>
-
-          {isDayLocked && (
-            <div className="my-6 p-4 bg-red-900/50 border border-red-500 text-red-200 rounded-lg text-center flex items-center justify-center gap-3">
-                <IconLock className="w-5 h-5" />
-                <p className="font-semibold">Day {currentDay} is locked. All scores are final and cannot be edited.</p>
-            </div>
-          )}
-
-          <ScoreEntryDashboard 
+            <ScoreEntryDashboard 
               currentDay={currentDay}
               courtKeys={courtKeys}
               matchupsForDay={allMatchups[currentDay]}
@@ -537,72 +529,50 @@ const Dashboard: React.FC<DashboardProps> = ({
               playerToSwap={playerToSwap}
               toggleSwapMode={toggleSwapMode}
               onPlayerSelectForSwap={handlePlayerSelectForSwap}
-          />
+            />
 
-          <div className="my-8 p-6 bg-gray-800/50 rounded-2xl shadow-2xl border border-gray-700">
-            <h2 className="text-2xl font-bold text-center text-yellow-400 mb-4">Coach's Playbook</h2>
-              <div className="text-center mb-6">
-                  <button 
-                    onClick={handleGenerateCoachingTip}
-                    disabled={isLoadingCoachingTip}
-                    className="px-4 py-2 bg-yellow-500 text-gray-900 font-bold rounded-lg hover:bg-yellow-400 transition-all duration-300 disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center mx-auto"
-                  >
-                    {isLoadingCoachingTip ? 'Generating...' : "Get New Tips"}
-                  </button>
-              </div>
-            
-              {isLoadingCoachingTip && <div className="text-center text-gray-400">Generating new tips...</div>}
-              {coachingTipError && <div className="p-4 bg-red-900/50 rounded-lg text-red-300 text-center">{coachingTipError}</div>}
+            <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                 <InfoCard icon={<IconLightbulb className="w-5 h-5"/>} title="Coach's Playbook">
+                    {coachingTip ? (
+                        <div className="space-y-3">
+                            <div>
+                                <h5 className="font-bold text-white">{coachingTip.skillTip.title}</h5>
+                                <p className="text-gray-400">{coachingTip.skillTip.content}</p>
+                            </div>
+                            <div>
+                                <h5 className="font-bold text-white flex items-center gap-1.5"><IconMessage className="w-4 h-4"/> Communication Tip</h5>
+                                <p className="text-gray-400">{coachingTip.communicationTip}</p>
+                            </div>
+                        </div>
+                    ) : coachingTipError ? (
+                        <p className="text-red-400">{coachingTipError}</p>
+                    ) : (
+                        <p className="text-gray-500">Click to generate a new tip.</p>
+                    )}
+                     <button onClick={handleGenerateCoachingTip} disabled={isLoadingCoachingTip} className="mt-3 w-full text-xs font-bold bg-yellow-500/80 text-black py-1 px-2 rounded hover:bg-yellow-500 disabled:bg-gray-600 disabled:cursor-wait">
+                        {isLoadingCoachingTip ? 'Generating...' : 'New Tip'}
+                    </button>
+                </InfoCard>
 
-              { coachingTip &&
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <InfoCard icon={<IconLightbulb className="w-4 h-4"/>} title={coachingTip.skillTip.title}>
-                          <p className="whitespace-pre-wrap">{coachingTip.skillTip.content}</p>
-                      </InfoCard>
-                      <InfoCard icon={<IconMessage className="w-4 h-4"/>} title="Teamwork Tip">
-                          <p>{coachingTip.communicationTip}</p>
-                      </InfoCard>
-                      <InfoCard icon={<IconQuote className="w-4 h-4"/>} title="Quote of the Day" className="md:col-span-2">
-                          <blockquote className="italic">
-                              "{coachingTip.quote.text}"
-                              <footer className="not-italic text-right mt-2 text-gray-400">— {coachingTip.quote.author}</footer>
-                          </blockquote>
-                      </InfoCard>
-                  </div>
-                </div>
-              }
-              { !coachingTip && !isLoadingCoachingTip && !coachingTipError && (
-                   <p className="text-center text-gray-500 py-8">
-                    {"Click the button to get your playbook tips!"}
-                  </p>
-              )}
-               <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div className="bg-gray-700/50 p-4 rounded-lg flex items-start gap-3">
-                        <IconLock className="w-8 h-8 text-yellow-400 mt-1 shrink-0"/>
+                 <InfoCard icon={<IconQuote className="w-5 h-5"/>} title="Quote of the Day" className="justify-between">
+                    {coachingTip ? (
                         <div>
-                            <h4 className="font-bold text-yellow-400">Did You Know?</h4>
-                            <p className="text-gray-300">Only the Super Admin can log in to manage scores and league settings.</p>
+                            <blockquote className="italic">"{coachingTip.quote.text}"</blockquote>
+                            <cite className="block text-right not-italic text-gray-400 mt-2">&mdash; {coachingTip.quote.author}</cite>
                         </div>
-                    </div>
-                    <a href="https://www.youtube.com/@darrencannell/videos" target="_blank" rel="noopener noreferrer" className="bg-gray-700/50 p-4 rounded-lg flex items-start gap-3 hover:bg-gray-700 transition-colors">
-                        <IconVideo className="w-8 h-8 text-red-500 mt-1 shrink-0"/>
-                        <div>
-                            <h4 className="font-bold text-yellow-400">Video Resources</h4>
-                            <p className="text-gray-300">Follow the official league YouTube channel for daily tips and subscribe to stay updated. <span className="underline">Watch now &rarr;</span></p>
-                        </div>
-                    </a>
-                </div>
-          </div>
-          <LeagueSchedule leagueConfig={leagueConfig} />
-        </main>
+                    ) : (
+                         <p className="text-gray-500 m-auto text-center">Generate a tip to see the quote.</p>
+                    )}
+                 </InfoCard>
+                 <InfoCard icon={<IconVideo className="w-5 h-5"/>} title="Featured Video">
+                    <p className="text-gray-400">Video content and tutorials coming soon to enhance the learning experience.</p>
+                 </InfoCard>
+            </div>
+          </>
+        )}
       </div>
-      {printableContent && (
-        <div className="printable">
-          {printableContent}
-        </div>
-      )}
-    </>
+      {printableContent && <div className="printable">{printableContent}</div>}
+    </div>
   );
 };
 

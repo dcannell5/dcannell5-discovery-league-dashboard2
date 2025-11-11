@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { IconLink, IconShare, IconEnvelope } from './Icon';
 
@@ -13,7 +12,7 @@ const externalLinks = [
 ];
 
 const LinksAndShare: React.FC<LinksAndShareProps> = ({ leagueTitle }) => {
-  const shareUrl = window.location.href;
+  const shareUrl = window.location.origin;
   const shareText = `Check out the ${leagueTitle}! A great development league for athletes.`;
 
   const emailBody = `${shareText}\n\nView the league here: ${shareUrl}`;

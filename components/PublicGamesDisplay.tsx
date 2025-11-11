@@ -61,34 +61,25 @@ const GameCard: React.FC<GameCardProps> = ({ gameIndex, matchup, result }) => {
 };
 
 interface PublicGamesDisplayProps {
-    courtTitle?: string;
     matchups?: GameMatchup[];
     results?: CourtResults;
 }
 
-const PublicGamesDisplay: React.FC<PublicGamesDisplayProps> = ({ courtTitle, matchups, results }) => {
-    if (!courtTitle || !matchups || matchups.length === 0) {
-        return (
-            <div className="my-8 p-6 bg-gray-800/50 rounded-2xl shadow-2xl border border-gray-700">
-                <h2 className="text-2xl font-bold text-center text-yellow-400 mb-4">Today's Games</h2>
-                <p className="text-center text-gray-500 py-8">Matchups for today are not available yet.</p>
-            </div>
-        );
+const PublicGamesDisplay: React.FC<PublicGamesDisplayProps> = ({ matchups, results }) => {
+    if (!matchups || matchups.length === 0) {
+        return null;
     }
 
     return (
-        <div className="my-8 p-6 bg-gray-800/50 rounded-2xl shadow-2xl border border-gray-700">
-            <h2 className="text-2xl font-bold text-center text-yellow-400 mb-6">{courtTitle}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {matchups.slice(0, 6).map((matchup, index) => (
-                    <GameCard 
-                        key={index}
-                        gameIndex={index}
-                        matchup={matchup}
-                        result={results?.[index]}
-                    />
-                ))}
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {matchups.slice(0, 6).map((matchup, index) => (
+                <GameCard 
+                    key={index}
+                    gameIndex={index}
+                    matchup={matchup}
+                    result={results?.[index]}
+                />
+            ))}
         </div>
     );
 };

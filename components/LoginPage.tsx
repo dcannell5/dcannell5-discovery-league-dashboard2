@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import type { AppData, LeagueConfig, UpcomingEvent, UserState } from '../types';
 import { IconCalendar, IconClipboardCheck, IconEdit, IconLogin, IconLogout, IconPlusCircle, IconTrophy, IconUserCheck, IconBook } from './Icon';
@@ -24,7 +25,6 @@ interface LoginPageProps {
 
 const roleTextMap: Record<UserState['role'], string> = {
     SUPER_ADMIN: 'Super Admin',
-    // FIX: Removed 'REFEREE' as it's not a valid role in the UserState type.
     NONE: ''
 };
 
@@ -55,7 +55,6 @@ const LeagueCard: React.FC<{
             if (!league.daySchedules) return null;
             const now = new Date();
             const futureDays = Object.entries(league.daySchedules)
-                // FIX: Explicitly type map parameters to resolve type inference issue.
                 .map(([day, dateStr]: [string, string]) => ({ day: parseInt(day), date: new Date(dateStr) }))
                 .filter(({ date }) => !isNaN(date.getTime()) && date > now)
                 .sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -170,7 +169,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ appData, onSelectLeague, onCreate
                         <div className="flex items-center gap-2 text-sm bg-gray-700/50 px-3 py-1.5 rounded-lg">
                             <IconUserCheck className="w-4 h-4 text-green-400" />
                             <span className="text-gray-300 font-semibold">
-                                {/* FIX: Removed invalid 'REFEREE' role check and simplified to use roleTextMap. */}
                                 {roleTextMap[userState.role]}
                             </span>
                         </div>
@@ -230,7 +228,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ appData, onSelectLeague, onCreate
         )}
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* FIX: Explicitly type map parameters to resolve type inference issue with 'league' object. */}
             {leagueEntries.map(([id, league]: [string, Omit<LeagueConfig, 'id'>]) => (
                 <LeagueCard 
                     key={id}
