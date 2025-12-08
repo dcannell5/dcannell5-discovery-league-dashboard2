@@ -1,5 +1,4 @@
 
-
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, UpcomingEvent, AiMessage, ProjectLogEntry, SaveStatus, SystemLog } from './types';
 import { SUPER_ADMIN_CODE } from './utils/auth';
@@ -208,43 +207,33 @@ const App: React.FC = () => {
                         const healthIssues: string[] = [];
                         
                         const serviceNameMap: Record<string, string> = {
-                            kvDatabase: 'Database Service (Vercel KV)',
-                            blobStorage: 'Image Storage (Vercel Blob)',
+                            storage: 'Google Cloud Storage',
                             aiService: 'AI Service (Gemini)'
                         };
 
                         const serviceFileMap: Record<string, string> = {
-                            kvDatabase: '/api/getData.ts, /api/saveData.ts, /api/resetData.ts',
-                            blobStorage: '/api/uploadImage.ts',
+                            storage: '/api/getData.ts, /api/saveData.ts, /api/resetData.ts',
                             aiService: '/api/aiHelper.ts, /api/generateCoachingTip.ts, /api/moderateImage.ts, /api/generateTeamOfTheDay.ts'
                         };
                         
                         const getSuggestion = (service: string, details: string): string => {
-                          if (service === 'kvDatabase') {
-                              if (details.includes('Missing') && details.includes('environment variable')) {
-                                  return "This app requires a Vercel KV store named 'leaguestorage'. Go to your Vercel Project -> Storage, create the KV store, and link it. This will automatically set the required server environment variables. After linking the store, you must create a new deployment for the changes to apply.";
+                          if (service === 'storage') {
+                              if (details.includes('Missing') || details.includes('not set')) {
+                                  return "This app requires a Google Cloud Storage bucket. Please ensure you have created a bucket and added the `GCS_BUCKET_NAME` environment variable to your Cloud Run service configuration.";
                               }
-                              if (details.includes('authentication') || details.includes('Unauthorized')) {
-                                   return "Authentication with Vercel KV failed. Please go to your Vercel Project -> Storage tab and ensure the `leaguestorage` KV store is correctly linked. You may need to re-link it and then create a new deployment.";
+                              if (details.includes('permission') || details.includes('AccessDenied')) {
+                                   return "Permission denied. Ensure the Cloud Run Service Account has 'Storage Object Admin' permissions for the specified bucket.";
                               }
-                          }
-                          if (service === 'blobStorage') {
-                              if (details.includes('configured')) return "Connect a Vercel Blob store via the Vercel dashboard and ensure `BLOB_READ_WRITE_TOKEN` is set as an environment variable. This is required for image uploads.";
                           }
                           if (service === 'aiService') {
-                              return "Add the `API_KEY` environment variable for the Gemini AI service in your Vercel project settings to enable AI features.";
+                              return "Add the `API_KEY` environment variable for the Gemini AI service in your Cloud Run service settings to enable AI features.";
                           }
-                          return "Check the service status on Vercel and review server logs for more details.";
+                          return "Check the service status on Google Cloud Console and review server logs for more details.";
                         };
                         
-                        if (healthData.kvDatabase?.status !== 'OK') {
-                            const service = 'kvDatabase';
-                            const details = healthData.kvDatabase.details;
-                            healthIssues.push(`- Service: ${serviceNameMap[service]}\n  File(s) Affected: ${serviceFileMap[service]}\n  Reason: ${details}\n  To Fix: ${getSuggestion(service, details)}`);
-                        }
-                        if (healthData.blobStorage?.status !== 'OK') {
-                            const service = 'blobStorage';
-                            const details = healthData.blobStorage.details;
+                        if (healthData.storage?.status !== 'OK') {
+                            const service = 'storage';
+                            const details = healthData.storage.details;
                             healthIssues.push(`- Service: ${serviceNameMap[service]}\n  File(s) Affected: ${serviceFileMap[service]}\n  Reason: ${details}\n  To Fix: ${getSuggestion(service, details)}`);
                         }
                         if (healthData.aiService?.status !== 'OK') {
@@ -256,7 +245,7 @@ const App: React.FC = () => {
                         if (healthIssues.length > 0) {
                             initialErrorMessage = "A system health check revealed the following critical configuration errors preventing the app from starting:\n\n" + healthIssues.join('\n\n');
                         } else {
-                            initialErrorMessage = baseMessage + "\n\nA health check was run but found no specific configuration errors. The issue might be a temporary network problem or a runtime error in the `/api/getData` server function. Please check the Vercel deployment logs for more details."
+                            initialErrorMessage = baseMessage + "\n\nA health check was run but found no specific configuration errors. The issue might be a temporary network problem or a runtime error in the `/api/getData` server function. Please check the Cloud Run logs for more details."
                         }
                     } else {
                         // Health check returned non-OK status, throw to be caught below
@@ -266,19 +255,17 @@ const App: React.FC = () => {
                     console.error("Health check request failed:", healthError);
                     initialErrorMessage = `### Critical Server Configuration Error
 
-The application cannot connect to its database. This is almost always caused by a misconfiguration of the Vercel KV integration.
+The application cannot connect to its storage.
 
 **Please follow these steps to fix the issue:**
 
-1.  **Go to your Vercel Project Dashboard.**
-2.  Navigate to the **Storage** tab.
-3.  Ensure you have a **KV (Redis)** store named \`leaguestorage\` connected to your project.
-4.  If it is connected, go to **Settings > Environment Variables**.
-5.  Confirm that Vercel has automatically created variables named \`LEAGUESTORAGE_KV_REST_API_URL\` and \`LEAGUESTORAGE_KV_REST_API_TOKEN\`.
+1.  **Go to your Google Cloud Console.**
+2.  Navigate to **Cloud Run** and select your service.
+3.  Go to **Edit & Deploy New Revision** > **Variables & Secrets**.
+4.  Ensure you have defined the Environment Variable: \`GCS_BUCKET_NAME\`.
+5.  Ensure your service account has permissions to access this bucket (Role: Storage Object Admin).
 
-**Important:** After connecting the store or verifying the variables, you **must create a new deployment** for the changes to take effect.
-
-The application code is designed to automatically use these variables. If they are missing or the KV store is not linked, all backend services will fail.`;
+**Important:** After updating variables, deploy the new revision.`;
                 }
             }
             

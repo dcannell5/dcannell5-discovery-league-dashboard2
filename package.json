@@ -1,19 +1,20 @@
+
 {
   "name": "discovery-league-dashboard",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "main": "dist-server/index.js",
+  "main": "dist-server/server/index.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build && tsc -p tsconfig.server.json",
     "preview": "vite preview",
-    "start": "node dist-server/index.js"
+    "start": "node dist-server/server/index.js"
   },
   "dependencies": {
     "@google/genai": "^1.17.0",
+    "@google-cloud/storage": "^7.7.0",
     "@types/node": "^20.14.9",
-    "@upstash/redis": "^1.31.6",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "express": "^4.19.2"

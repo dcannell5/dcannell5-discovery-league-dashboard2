@@ -1,12 +1,12 @@
+
 import express from 'express';
 import type { Request, Response } from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { Redis } from '@upstash/redis';
+import { Storage } from '@google-cloud/storage';
 import { GoogleGenAI, Type } from "@google/genai";
 
 // --- Type Imports ---
-// Using relative paths to access types from the main project source
 import type { AppData, UserState, LeagueConfig, AllDailyResults, AllDailyMatchups, PlayerWithStats } from '../types.js';
 import { initialAppData } from '../data/initialData.js';
 
@@ -14,15 +14,20 @@ import { initialAppData } from '../data/initialData.js';
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 
+// --- Configuration ---
+const BUCKET_NAME = process.env.GCS_BUCKET_NAME;
+const DATA_FILE_NAME = 'league_data.json';
+
+// Initialize Storage (Auto-authenticates on Cloud Run)
+const storage = new Storage();
+
 // --- Helper Functions ---
-const getRedisClient = () => {
-    const url = process.env.LEAGUESTORAGE_KV_REST_API_URL || process.env.KV_REST_API_URL;
-    const token = process.env.LEAGUESTORAGE_KV_REST_API_TOKEN || process.env.KV_REST_API_TOKEN;
-    if (!url || !token) {
-        console.error("CRITICAL: Database connection credentials are not configured on the server.");
-        throw new Error("Database connection credentials are not configured on the server.");
+const getBucket = () => {
+    if (!BUCKET_NAME) {
+        console.error("CRITICAL: GCS_BUCKET_NAME environment variable is not set.");
+        throw new Error("Server configuration error: GCS_BUCKET_NAME is missing.");
     }
-    return new Redis({ url, token });
+    return storage.bucket(BUCKET_NAME);
 };
 
 const getAiClient = () => {
@@ -33,48 +38,77 @@ const getAiClient = () => {
     return new GoogleGenAI({ apiKey: process.env.API_KEY });
 }
 
-const APP_DATA_KEY = 'discovery-league-data';
-
 // --- API Routes ---
 
 // GET /api/getData
 app.get('/api/getData', async (req: Request, res: Response) => {
     try {
-        const redis = getRedisClient();
-        const data = await redis.get<string>(APP_DATA_KEY);
-        if (data) {
-            return res.status(200).json(JSON.parse(data));
+        const bucket = getBucket();
+        const file = bucket.file(DATA_FILE_NAME);
+        const [exists] = await file.exists();
+
+        if (exists) {
+            const [content] = await file.download();
+            const jsonString = content.toString();
+            // Basic validation to ensure it's valid JSON
+            try {
+                const data = JSON.parse(jsonString);
+                return res.status(200).json(data);
+            } catch (parseError) {
+                console.error("Corrupt JSON in storage, returning initial data.");
+                return res.status(200).json(initialAppData);
+            }
         } else {
-            await redis.set(APP_DATA_KEY, JSON.stringify(initialAppData));
+            // Initialize file if it doesn't exist
+            await file.save(JSON.stringify(initialAppData), {
+                contentType: 'application/json',
+                resumable: false
+            });
             return res.status(200).json(initialAppData);
         }
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-        res.status(500).json({ error: 'Failed to connect to the database.', details: errorMessage });
+        console.error("Error in /api/getData:", errorMessage);
+        res.status(500).json({ error: 'Failed to retrieve data from Cloud Storage.', details: errorMessage });
     }
 });
 
 // POST /api/saveData
 app.post('/api/saveData', async (req: Request, res: Response) => {
     try {
-        const redis = getRedisClient();
+        const bucket = getBucket();
+        const file = bucket.file(DATA_FILE_NAME);
         const appData = req.body as AppData;
+
         if (!appData || typeof appData !== 'object') {
             return res.status(400).json({ error: 'Invalid appData format.' });
         }
-        await redis.set(APP_DATA_KEY, JSON.stringify(appData));
+
+        await file.save(JSON.stringify(appData), {
+            contentType: 'application/json',
+            resumable: false
+        });
+        
         res.status(200).json({ success: true });
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-        res.status(500).json({ error: 'Failed to save data.', details: errorMessage });
+        console.error("Error in /api/saveData:", errorMessage);
+        res.status(500).json({ error: 'Failed to save data to Cloud Storage.', details: errorMessage });
     }
 });
 
 // POST /api/resetData
 app.post('/api/resetData', async (req: Request, res: Response) => {
     try {
-        const redis = getRedisClient();
-        await redis.del(APP_DATA_KEY);
+        const bucket = getBucket();
+        const file = bucket.file(DATA_FILE_NAME);
+        
+        // Overwrite with initial data instead of deleting, to preserve permissions/existence
+        await file.save(JSON.stringify(initialAppData), {
+            contentType: 'application/json',
+            resumable: false
+        });
+        
         res.status(200).json({ success: true, message: 'Data reset successfully.' });
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
@@ -217,24 +251,30 @@ DATA:
 
 // GET /api/system-health
 app.get('/api/system-health', async (req: Request, res: Response) => {
-    const checkKv = async () => {
+    const checkGcs = async () => {
         try {
-            getRedisClient(); // This will throw if variables are missing
-            return { status: 'OK', details: 'Successfully connected.' };
+            const bucket = getBucket(); // Throws if bucket name is missing
+            const [exists] = await bucket.exists();
+            if (!exists) {
+                return { status: 'ERROR', details: `Bucket '${BUCKET_NAME}' does not exist.` };
+            }
+            // Optional: Check if we can write/read a test file if strictly necessary, 
+            // but checking bucket existence + simple metadata is usually enough to verify credentials.
+            return { status: 'OK', details: `Connected to bucket '${BUCKET_NAME}'.` };
         } catch (error) {
             return { status: 'ERROR', details: (error as Error).message };
         }
     };
     const checkAi = () => {
         try {
-            getAiClient(); // This will throw if API key is missing
+            getAiClient(); // Throws if API key is missing
             return { status: 'OK', details: 'API key is present.' };
         } catch(error) {
             return { status: 'ERROR', details: (error as Error).message };
         }
     };
     res.status(200).json({
-        kvDatabase: await checkKv(),
+        storage: await checkGcs(),
         aiService: checkAi(),
     });
 });
@@ -243,12 +283,9 @@ app.get('/api/system-health', async (req: Request, res: Response) => {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Vite builds assets to /dist. The server runs from /dist-server. So we go up one and into /dist.
-const buildPath = path.join(__dirname, '..', 'dist');
+const buildPath = path.join(__dirname, '../../dist');
 app.use(express.static(buildPath));
 
-// For any request that doesn't match an API route or a static file,
-// serve index.html. This is crucial for SPA routing.
 app.get('*', (req, res) => {
     res.sendFile(path.join(buildPath, 'index.html'));
 });
