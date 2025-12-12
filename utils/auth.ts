@@ -5,6 +5,7 @@ import type { LeagueConfig } from "../types";
 // In a real application, this would be handled by a secure backend server.
 
 export const SUPER_ADMIN_CODE = 'DISCOVERY2025';
+export const REFEREE_CODE = 'REF2025';
 
 // As per the prompt, the league starts on July 1, 2025.
 export const LEAGUE_START_DATE = new Date('2025-07-01T00:00:00Z');

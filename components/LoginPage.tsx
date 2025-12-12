@@ -25,6 +25,7 @@ interface LoginPageProps {
 
 const roleTextMap: Record<UserState['role'], string> = {
     SUPER_ADMIN: 'Super Admin',
+    REFEREE: 'Referee',
     NONE: ''
 };
 

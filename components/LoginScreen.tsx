@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { IconVolleyball } from './Icon';
+import { REFEREE_CODE } from '../utils/auth';
 
 interface LoginScreenProps {
   onLogin: (code: string) => void;
@@ -59,7 +60,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, error, onClose }) =>
             <summary className="cursor-pointer font-semibold hover:text-white">Access Level Information</summary>
             <div className="mt-2 space-y-2">
                 <p><strong className="text-gray-300">Public View:</strong> Anyone can view league standings and schedules without logging in.</p>
-                <p><strong className="text-gray-300">Super Admin:</strong> Has full control to create events, edit scores, and manage all settings. Uses a permanent access code.</p>
+                <p><strong className="text-gray-300">Referee:</strong> Code: {REFEREE_CODE}. Can enter game scores.</p>
+                <p><strong className="text-gray-300">Super Admin:</strong> Has full control to create events, edit scores, move athletes, and manage all settings.</p>
             </div>
         </details>
       </div>

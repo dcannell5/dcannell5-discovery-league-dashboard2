@@ -41,6 +41,7 @@ export type AllDailyMatchups = Record<number, DailyCourtMatchups>;
 // --- User and Auth Types ---
 export type UserState = 
   | { role: 'NONE' }
+  | { role: 'REFEREE' }
   | { role: 'SUPER_ADMIN' };
 
 // --- Attendance Types ---

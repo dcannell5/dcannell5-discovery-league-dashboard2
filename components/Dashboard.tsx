@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Player, AllDailyResults, GameResult, UserState, AllDailyMatchups, AllDailyAttendance, LeagueConfig, CourtResults, CoachingTip, AppData } from '../types';
 import { generateCoachingTip } from '../services/geminiService';
@@ -14,7 +13,7 @@ import ScoreEntryDashboard from './ScoreEntryDashboard';
 import Announcements from './Announcements';
 import AdminPanel from './AdminPanel';
 import LinksAndShare from './LinksAndShare';
-import { IconTrophy, IconLightbulb, IconQuote, IconVideo, IconLock, IconMessage, IconSettings } from './Icon';
+import { IconLightbulb, IconQuote, IconVideo, IconLock, IconMessage, IconSettings } from './Icon';
 import TeamOfTheDay from './TeamOfTheDay';
 import PublicGamesDisplay from './PublicGamesDisplay';
 import LeagueSchedule from './LeagueSchedule';
@@ -433,7 +432,8 @@ const Dashboard: React.FC<DashboardProps> = ({
         
         <Leaderboard players={sortedDisplayPlayers.slice(0, 3)} />
 
-        {userState.role !== 'SUPER_ADMIN' ? (
+        {/* Public View: Show Standings, Public Games, Etc. */}
+        {userState.role === 'NONE' ? (
           <>
             <div className="my-8 p-6 bg-gray-800/50 rounded-2xl shadow-2xl border border-gray-700">
                 <h2 className="text-2xl font-bold text-center text-yellow-400 mb-6">Daily Game Results</h2>
@@ -488,13 +488,18 @@ const Dashboard: React.FC<DashboardProps> = ({
             <LinksAndShare leagueTitle={leagueConfig.title} />
           </>
         ) : (
+          /* Admin/Referee View */
           <>
             <div className="my-8 p-4 bg-gray-800/50 rounded-2xl border border-gray-700 flex flex-col sm:flex-row justify-center items-center gap-4 text-center">
-                <p className="text-lg text-white font-semibold">Admin Mode Activated</p>
+                <p className="text-lg text-white font-semibold">
+                    {userState.role === 'SUPER_ADMIN' ? 'Admin Mode Activated' : 'Referee Mode Activated'}
+                </p>
                 <div className="flex gap-2">
-                    <button onClick={() => setShowAdminPanel(!showAdminPanel)} className="flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg bg-gray-700 hover:bg-gray-600">
-                        <IconSettings className="w-5 h-5" /> {showAdminPanel ? 'Hide' : 'Show'} Admin Panel
-                    </button>
+                    {userState.role === 'SUPER_ADMIN' && (
+                        <button onClick={() => setShowAdminPanel(!showAdminPanel)} className="flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg bg-gray-700 hover:bg-gray-600">
+                            <IconSettings className="w-5 h-5" /> {showAdminPanel ? 'Hide' : 'Show'} Admin Panel
+                        </button>
+                    )}
                     {isDayLocked && (
                         <div className="flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg bg-red-900/50 text-red-300">
                             <IconLock className="w-5 h-5"/> Day {currentDay} is Locked
@@ -503,7 +508,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             </div>
 
-            {showAdminPanel && (
+            {showAdminPanel && userState.role === 'SUPER_ADMIN' && (
                 <AdminPanel 
                     appData={appData}
                     leagueConfig={leagueConfig} 
