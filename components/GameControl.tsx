@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import type { GameResult, UserState } from '../types';
 
@@ -38,8 +37,8 @@ const GameControl: React.FC<GameControlProps> = ({ gameIndex, result, onResultCh
         }
     };
     
-    // Super Admins can always edit, unless the day is locked.
-    const canEdit = userRole === 'SUPER_ADMIN';
+    // Super Admins and Referees can edit scores, unless the day is locked.
+    const canEdit = userRole === 'SUPER_ADMIN' || userRole === 'REFEREE';
     const isDisabled = !canEdit || isDayLocked;
 
     const inputClasses = "w-full text-center bg-gray-900/50 rounded-md py-2 px-1 text-white font-bold text-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed";

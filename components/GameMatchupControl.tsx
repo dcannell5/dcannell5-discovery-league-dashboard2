@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import type { GameResult, UserState, GameMatchup, Player, DailyAttendance } from '../types';
 import { IconArrowsRightLeft } from './Icon';
@@ -36,10 +35,11 @@ const TeamList: React.FC<{
     playerToSwap: PlayerToSwap | null;
     onPlayerSelectForSwap: (player: Player, gameIndex: number) => void;
 }> = ({team, title, teamKey, gameIndex, onPlayerMove, userState, isDayLocked, isSwapMode, playerToSwap, onPlayerSelectForSwap, attendanceForDay}) => {
-    const canEdit = userState.role === 'SUPER_ADMIN';
+    // Only Super Admins can move players between teams or select for swap
+    const canMove = userState.role === 'SUPER_ADMIN';
 
     const handlePlayerClick = (player: Player) => {
-      if (isSwapMode && userState.role === 'SUPER_ADMIN' && !isDayLocked) {
+      if (isSwapMode && canMove && !isDayLocked) {
         onPlayerSelectForSwap(player, gameIndex);
       }
     };
@@ -55,7 +55,7 @@ const TeamList: React.FC<{
 
                 const liClasses = [
                     "truncate flex items-center justify-between gap-1 p-1 rounded-md transition-colors",
-                    isSwapMode && isTargetable && !isDayLocked ? "cursor-pointer hover:bg-yellow-500/20" : "",
+                    isSwapMode && isTargetable && !isDayLocked && canMove ? "cursor-pointer hover:bg-yellow-500/20" : "",
                     isSwapMode && !isTargetable ? "opacity-50 cursor-not-allowed" : "",
                     isSelectedForSwap ? "bg-yellow-500/30 ring-2 ring-yellow-400" : "",
                     !isPresent ? "opacity-50 text-gray-500 line-through" : ""
@@ -64,7 +64,7 @@ const TeamList: React.FC<{
                 <li key={player.id} className={liClasses} onClick={() => isTargetable && handlePlayerClick(player)}>
                     <span className="flex-1 truncate">{player.name}</span>
                     <div className="flex items-center">
-                        {canEdit && !isSwapMode && !isDayLocked && (
+                        {canMove && !isSwapMode && !isDayLocked && (
                             <button 
                                 onClick={(e) => { e.stopPropagation(); onPlayerMove(player.id, teamKey); } } 
                                 className="ml-1 text-gray-500 hover:text-yellow-400 transition-colors"
@@ -85,7 +85,8 @@ const GameMatchupControl: React.FC<GameMatchupControlProps> = ({
     gameIndex, currentDay, matchup, result, onResultChange, onPlayerMove, userState,
     isDayLocked, isSwapMode, playerToSwap, onPlayerSelectForSwap, attendanceForDay
 }) => {
-    const canEdit = userState.role === 'SUPER_ADMIN';
+    // Both Admins and Referees can see the game controls, but functionality inside differs
+    const canEdit = userState.role === 'SUPER_ADMIN' || userState.role === 'REFEREE';
 
     const handlePlayerMoveInTeam = (playerId: number, fromTeam: 'teamA' | 'teamB') => {
         onPlayerMove(playerId, fromTeam);

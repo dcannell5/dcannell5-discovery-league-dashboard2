@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import type { DailyResults, GameResult, UserState, DailyCourtMatchups, DailyAttendance, Player } from '../types';
 import CourtScoreEntry from './CourtScoreEntry';
@@ -47,7 +46,8 @@ const ScoreEntryDashboard: React.FC<ScoreEntryDashboardProps> = ({
 }) => {
     const [isAttendanceVisible, setIsAttendanceVisible] = useState(false);
 
-    if (userState.role !== 'SUPER_ADMIN') {
+    // Allow both Super Admins and Referees to see the dashboard
+    if (userState.role === 'NONE') {
         return null;
     }
     
@@ -72,19 +72,26 @@ const ScoreEntryDashboard: React.FC<ScoreEntryDashboardProps> = ({
             <div className="flex flex-col md:flex-row justify-center items-center gap-6 mb-6 text-center">
               <h2 className="text-3xl font-bold text-white">{dashboardTitle}</h2>
               <div className="flex gap-2 flex-wrap justify-center">
-                <button
-                    onClick={() => setIsAttendanceVisible(!isAttendanceVisible)}
-                    disabled={isDayLocked}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all duration-300 bg-gray-700 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    <IconClipboardList className="w-5 h-5" />
-                    {isAttendanceVisible ? 'Hide Attendance' : 'Manage Attendance'}
-                </button>
+                {/* Only Super Admin can manage attendance */}
+                {userState.role === 'SUPER_ADMIN' && (
+                    <button
+                        onClick={() => setIsAttendanceVisible(!isAttendanceVisible)}
+                        disabled={isDayLocked}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all duration-300 bg-gray-700 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <IconClipboardList className="w-5 h-5" />
+                        {isAttendanceVisible ? 'Hide Attendance' : 'Manage Attendance'}
+                    </button>
+                )}
+                
+                {/* Only Super Admin can swap players */}
                 {userState.role === 'SUPER_ADMIN' && (
                      <button onClick={toggleSwapMode} disabled={isDayLocked} className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${isSwapMode ? 'bg-yellow-500 text-black' : 'bg-gray-700 hover:bg-gray-600'} disabled:opacity-50 disabled:cursor-not-allowed`}>
                         <IconUserSwap className="w-5 h-5"/> {swapButtonText}
                     </button>
                 )}
+                
+                {/* Only Super Admin can lock/unlock days */}
                 {userState.role === 'SUPER_ADMIN' && (
                     <button 
                         onClick={() => onToggleDayLock(currentDay)}
@@ -97,7 +104,7 @@ const ScoreEntryDashboard: React.FC<ScoreEntryDashboardProps> = ({
               </div>
             </div>
             
-            {isAttendanceVisible && (
+            {isAttendanceVisible && userState.role === 'SUPER_ADMIN' && (
                 <AttendanceManager
                     currentDay={currentDay}
                     matchupsForDay={matchupsForDay}

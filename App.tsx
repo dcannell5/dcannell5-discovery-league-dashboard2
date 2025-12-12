@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { LeagueConfig, UserState, AppData, AllDailyResults, AllDailyMatchups, AllDailyAttendance, UpcomingEvent, AiMessage, ProjectLogEntry, SaveStatus, SystemLog } from './types';
-import { SUPER_ADMIN_CODE } from './utils/auth';
+import { SUPER_ADMIN_CODE, REFEREE_CODE } from './utils/auth';
 import SetupScreen from './components/SetupScreen';
 import Dashboard from './components/Dashboard';
 import LoginScreen from './components/LoginScreen';
@@ -532,6 +532,11 @@ The application cannot connect to its storage.
 
     if (upperCaseCode === SUPER_ADMIN_CODE) {
         setUserState({ role: 'SUPER_ADMIN' });
+        setShowLoginModal(false);
+        setAdminView('hub');
+        return;
+    } else if (upperCaseCode === REFEREE_CODE) {
+        setUserState({ role: 'REFEREE' });
         setShowLoginModal(false);
         setAdminView('hub');
         return;
