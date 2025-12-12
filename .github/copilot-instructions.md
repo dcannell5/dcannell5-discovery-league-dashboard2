@@ -89,16 +89,28 @@ npm start
 
 The application uses a comprehensive type system defined in `types.ts`:
 
+### Core Data Types
 - **`Player`** - Basic player information (id, name, grade)
 - **`PlayerWithStats`** - Extended player with statistics (points, wins, losses, etc.)
 - **`LeagueConfig`** - League configuration (players, days, courts, settings)
 - **`AppData`** - Top-level application data structure supporting multi-league management
+
+### Game and Schedule Types
 - **`GameResult`** - Match result or 'unplayed' status
 - **`AllDailyResults`** - Nested record of all game results by day and court
 - **`AllDailyMatchups`** - Scheduled matchups by day and court
 - **`AllDailyAttendance`** - Player attendance tracking
+
+### Authentication and Status Types
 - **`UserState`** - Authentication/authorization roles (NONE, REFEREE, SUPER_ADMIN)
 - **`SaveStatus`** - Data persistence state ('idle', 'saving', 'saved', 'error', etc.)
+
+### AI and Features Types
+- **`CoachingTip`** - AI-generated coaching advice with tips and quotes
+- **`AiMessage`** - Chat messages for AI helper interface
+- **`UpcomingEvent`** - Event announcements with call-to-action
+- **`ProjectLogEntry`** - Development blog/journal entries
+- **`SystemLog`** - Administrative system diagnostic logs
 
 ## Coding Standards and Patterns
 
