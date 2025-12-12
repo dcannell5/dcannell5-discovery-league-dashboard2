@@ -124,7 +124,7 @@ The application uses a comprehensive type system defined in `types.ts`:
 - API handlers in `/api` directory export default async functions
 - Request/response pattern with proper error handling
 - Data persistence through dedicated save/load endpoints
-- Environment variables for API keys (e.g., `GEMINI_API_KEY`)
+- Environment variables for API keys (e.g., `API_KEY`)
 
 ### TypeScript Best Practices
 - **Strict mode enabled** in tsconfig.json
