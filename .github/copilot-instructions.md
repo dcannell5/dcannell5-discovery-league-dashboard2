@@ -234,8 +234,7 @@ Required environment variables:
 
 ## Additional Notes
 
-- The application was built with AI Studio and leverages Google's Gemini AI extensively
+- The application was built with Google AI Studio and leverages Google's Gemini AI extensively
 - Images and assets stored in cloud storage, not in repository
 - Large image file (`league.png`) is part of branding assets
-- Some component files at root level (e.g., `AdminPanel.tsx`, `LoginPage.tsx`) may be legacy/unused
 - Active development primarily in `/components` directory
