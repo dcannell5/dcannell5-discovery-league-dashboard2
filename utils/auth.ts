@@ -60,4 +60,3 @@ export function getActiveDay(currentDate: Date, leagueConfig: LeagueConfig): num
     
     return Math.max(1, Math.min(currentDay, totalDays));
 }
-
