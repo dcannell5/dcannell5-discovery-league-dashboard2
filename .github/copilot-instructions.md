@@ -209,9 +209,13 @@ The application uses a comprehensive type system defined in `types.ts`:
 
 ## Environment Variables
 
-Required environment variables:
-- `GEMINI_API_KEY` - Google Gemini API key for AI features
-- Additional cloud storage credentials may be needed for image uploads
+Required environment variables for the application:
+
+- **`API_KEY`** - Google Gemini API key for AI features (coaching tips, AI helper, content moderation)
+- **`GCS_BUCKET_NAME`** - Google Cloud Storage bucket name for data persistence and image uploads
+- **`PORT`** - (Optional) Server port, defaults to 8080 if not specified
+
+**Note:** When deployed on Google Cloud Run, authentication to Google Cloud Storage is handled automatically. For local development, you may need to configure Google Cloud credentials.
 
 ## Deployment
 
@@ -234,7 +238,7 @@ Required environment variables:
 
 ## Additional Notes
 
-- The application was built with Google AI Studio and leverages Google's Gemini AI extensively
-- Images and assets stored in cloud storage, not in repository
+- The application utilizes Google Gemini AI models for AI-powered features
+- Images and assets stored in Google Cloud Storage, not in repository
 - Large image file (`league.png`) is part of branding assets
 - Active development primarily in `/components` directory
